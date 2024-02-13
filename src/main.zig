@@ -11,15 +11,11 @@ const Felt252 = @import("math/fields/starknet.zig").Felt252;
 // *****************************************************************************
 
 /// Standard library options.
-pub const std_options = struct {
-    /// Define the global log level.
-    /// TODO: Make this configurable.
-    pub const log_level = .debug;
-    /// Define the log scope levels for each library.
-    /// TODO: Make this configurable.
-    pub const log_scope_levels = &[_]std.log.ScopeLevel{};
-    // Define logFn to override the std implementation
-    pub const logFn = customlogFn;
+/// log_level and log_scope_levels make it configurable.
+pub const std_options = .{
+    .logFn = customlogFn,
+    .log_level = .debug,
+    .log_scope_levels = &[_]std.log.ScopeLevel{},
 };
 
 pub fn main() !void {
@@ -30,8 +26,8 @@ pub fn main() !void {
         \\We will add 0x800000000000011000000000000000000000000000000000000000000000000 and 0x4.
         \\The result should be 3.
     , .{});
-    const a = Felt252.fromInteger(0x800000000000011000000000000000000000000000000000000000000000000);
-    const b = Felt252.fromInteger(0x4);
+    const a = Felt252.fromInt(u256, 0x800000000000011000000000000000000000000000000000000000000000000);
+    const b = Felt252.fromInt(u256, 0x4);
     const c = a.add(b);
     std.debug.print("\nResult: {}\n", .{c.toInteger()});
 }
@@ -47,6 +43,12 @@ pub fn main() !void {
 test "fields" {
     _ = @import("math/fields/fields.zig");
     _ = @import("math/fields/starknet.zig");
+    _ = @import("math/fields/elliptic_curve.zig");
+}
+
+test "curve" {
+    _ = @import("math/curve/ec_point.zig");
+    _ = @import("math/curve/curve_params.zig");
 }
 
 // *****************************************************************************
