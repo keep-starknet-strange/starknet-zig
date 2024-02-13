@@ -30,8 +30,8 @@ pub fn main() !void {
         \\We will add 0x800000000000011000000000000000000000000000000000000000000000000 and 0x4.
         \\The result should be 3.
     , .{});
-    const a = Felt252.fromInteger(0x800000000000011000000000000000000000000000000000000000000000000);
-    const b = Felt252.fromInteger(0x4);
+    const a = Felt252.fromInt(u256, 0x800000000000011000000000000000000000000000000000000000000000000);
+    const b = Felt252.fromInt(u256, 0x4);
     const c = a.add(b);
     std.debug.print("\nResult: {}\n", .{c.toInteger()});
 }
