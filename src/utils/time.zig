@@ -490,7 +490,7 @@ fn printLongName(writer: anytype, index: u16, names: []const string) !void {
 }
 
 fn wrap(val: u16, at: u16) u16 {
-    var tmp = val % at;
+    const tmp = val % at;
     return if (tmp == 0) at else tmp;
 }
 
@@ -505,7 +505,7 @@ const expect = std.testing.expect;
 test "time format" {
     // Initialize an allocator.
     // TODO: Consider using a testing allocator.
-    var allocator = std.heap.page_allocator;
+    const allocator = std.heap.page_allocator;
     const utc_format = "YYYY-MM-DDTHH:mm:ss";
     const dt = DateTime.initUnix(1697696484);
     const formatted_dt = try dt.formatAlloc(allocator, utc_format);

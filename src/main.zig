@@ -47,6 +47,12 @@ pub fn main() !void {
 test "fields" {
     _ = @import("math/fields/fields.zig");
     _ = @import("math/fields/starknet.zig");
+    _ = @import("math/fields/elliptic_curve.zig");
+}
+
+test "curve" {
+    _ = @import("math/curve/ec_point.zig");
+    _ = @import("math/curve/curve_params.zig");
 }
 
 // *****************************************************************************
