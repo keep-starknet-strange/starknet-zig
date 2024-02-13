@@ -11,15 +11,11 @@ const Felt252 = @import("math/fields/starknet.zig").Felt252;
 // *****************************************************************************
 
 /// Standard library options.
-pub const std_options = struct {
-    /// Define the global log level.
-    /// TODO: Make this configurable.
-    pub const log_level = .debug;
-    /// Define the log scope levels for each library.
-    /// TODO: Make this configurable.
-    pub const log_scope_levels = &[_]std.log.ScopeLevel{};
-    // Define logFn to override the std implementation
-    pub const logFn = customlogFn;
+/// log_level and log_scope_levels make it configurable.
+pub const std_options = .{
+    .logFn = customlogFn,
+    .log_level = .debug,
+    .log_scope_levels = &[_]std.log.ScopeLevel{},
 };
 
 pub fn main() !void {
