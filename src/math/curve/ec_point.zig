@@ -196,11 +196,28 @@ pub const AffinePoint = struct {
         return .{ .x = x, .y = y, .infinity = infinity };
     }
 
-    pub fn add(self: Self, other: Self) Self {
+    /// Adds another elliptic curve point to this point.
+    ///
+    /// Performs point addition between two elliptic curve points.
+    ///
+    /// # Arguments
+    ///
+    /// * `self` - The first elliptic curve point.
+    /// * `other` - A pointer to the second elliptic curve point being added.
+    ///
+    /// # Returns
+    ///
+    /// The resulting elliptic curve point after the addition operation.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if any error occurs during the addition operation.
+    pub fn add(self: Self, other: *const Self) !Self {
+        // Make a copy of the original point
         var cp = self;
-        var cp_other = other;
-
-        Self.addAssign(&cp, &cp_other);
+        // Perform point addition in place
+        try Self.addAssign(&cp, other);
+        // Return the resulting point
         return cp;
     }
 
@@ -532,5 +549,102 @@ test "AffinePoint: fromX should return an affine point based on the provided " {
     try expectError(
         EcPointError.SqrtNotExist,
         AffinePoint.fromX(Felt252.fromInt(u256, 87473945107800776645746498)),
+    );
+}
+
+test "AffinePoint: add P + 0 should give P" {
+    const a: AffinePoint = .{
+        .x = Felt252.fromInt(u256, 874739451078007766457464989),
+        .y = Felt252.fromInt(u256, 498516619889999230417086521843493582191978251645677012430043846185431670262),
+        .infinity = false,
+    };
+
+    try expectEqual(
+        AffinePoint{
+            .x = Felt252.fromInt(u256, 874739451078007766457464989),
+            .y = Felt252.fromInt(u256, 498516619889999230417086521843493582191978251645677012430043846185431670262),
+            .infinity = false,
+        },
+        try a.add(&.{}),
+    );
+}
+
+test "AffinePoint: add 0 + P should give P" {
+    var a: AffinePoint = .{};
+
+    try expectEqual(
+        AffinePoint{
+            .x = Felt252.fromInt(u256, 874739451078007766457464989),
+            .y = Felt252.fromInt(u256, 498516619889999230417086521843493582191978251645677012430043846185431670262),
+            .infinity = false,
+        },
+        try a.add(&.{
+            .x = Felt252.fromInt(u256, 874739451078007766457464989),
+            .y = Felt252.fromInt(u256, 498516619889999230417086521843493582191978251645677012430043846185431670262),
+            .infinity = false,
+        }),
+    );
+}
+
+test "AffinePoint: add P + (-P) should give 0" {
+    var a: AffinePoint = .{
+        .x = Felt252.fromInt(u256, 874739451078007766457464989),
+        .y = Felt252.fromInt(u256, 498516619889999230417086521843493582191978251645677012430043846185431670262),
+        .infinity = false,
+    };
+
+    try expectEqual(
+        AffinePoint{
+            .x = Felt252.zero(),
+            .y = Felt252.zero(),
+            .infinity = true,
+        },
+        try a.add(&.{
+            .x = Felt252.fromInt(u256, 874739451078007766457464989),
+            .y = Felt252.fromInt(u256, 498516619889999230417086521843493582191978251645677012430043846185431670262).neg(),
+            .infinity = false,
+        }),
+    );
+}
+
+test "AffinePoint: add P + P should give 2P" {
+    var a: AffinePoint = .{
+        .x = Felt252.fromInt(u256, 874739451078007766457464989),
+        .y = Felt252.fromInt(u256, 498516619889999230417086521843493582191978251645677012430043846185431670262),
+        .infinity = false,
+    };
+
+    try expectEqual(
+        AffinePoint{
+            .x = Felt252.fromInt(u256, 1007300233009797052089600572030536234678420387464749955693412487829103372971),
+            .y = Felt252.fromInt(u256, 1628094014246951319213922206675864072767692386561452886899658728389307097247),
+            .infinity = false,
+        },
+        try a.add(&.{
+            .x = Felt252.fromInt(u256, 874739451078007766457464989),
+            .y = Felt252.fromInt(u256, 498516619889999230417086521843493582191978251645677012430043846185431670262),
+            .infinity = false,
+        }),
+    );
+}
+
+test "AffinePoint: add should give the proper point addition" {
+    var a: AffinePoint = .{
+        .x = Felt252.fromInt(u256, 874739451078007766457464989),
+        .y = Felt252.fromInt(u256, 498516619889999230417086521843493582191978251645677012430043846185431670262),
+        .infinity = false,
+    };
+
+    try expectEqual(
+        AffinePoint{
+            .x = Felt252.fromInt(u256, 1732660995762076585664239316986550513074833679175460014337184483203739567080),
+            .y = Felt252.fromInt(u256, 2212051391075121985157657306991376790084194366385999148123095336409007912683),
+            .infinity = false,
+        },
+        try a.add(&.{
+            .x = Felt252.fromInt(u256, 874739451),
+            .y = Felt252.fromInt(u256, 78981980789517450823121602653688575320503877484645249556098070515590001476),
+            .infinity = false,
+        }),
     );
 }
