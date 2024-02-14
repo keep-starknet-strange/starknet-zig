@@ -310,14 +310,46 @@ pub const AffinePoint = struct {
         return cp;
     }
 
-    pub fn sub(self: Self, other: Self) Self {
+    /// Subtracts another affine point from this point in the context of elliptic curve arithmetic.
+    ///
+    /// This function performs point subtraction between two affine points on an elliptic curve in Short Weierstrass form.
+    /// It calculates the difference between the two points and returns the result as a new affine point.
+    ///
+    /// # Arguments
+    ///
+    /// * `self` - The affine point from which the other point is subtracted.
+    /// * `other` - A pointer to the affine point being subtracted.
+    ///
+    /// # Returns
+    ///
+    /// The result of subtracting the other point from this point, represented as a new affine point.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if an error occurs during the calculation, such as division by zero.
+    ///
+    pub fn sub(self: Self, other: *const Self) !Self {
         var cp = self;
-        cp.subAssign(other);
+        try cp.addAssign(&other.neg());
         return cp;
     }
 
-    pub fn subAssign(self: *Self, rhs: *const Self) void {
-        try self.addAssign(&rhs.y.neg());
+    /// Subtracts another affine point from this point in place in the context of elliptic curve arithmetic.
+    ///
+    /// This function performs point subtraction between two affine points on an elliptic curve in Short Weierstrass form.
+    /// It modifies the original point by subtracting the other point from it.
+    ///
+    /// # Arguments
+    ///
+    /// * `self` - A mutable reference to the affine point from which the other point is subtracted.
+    /// * `rhs` - A pointer to the affine point being subtracted.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if an error occurs during the calculation, such as division by zero.
+    ///
+    pub fn subAssign(self: *Self, rhs: *const Self) !void {
+        try self.addAssign(&rhs.neg());
     }
 
     /// Adds another affine point to this point in the context of elliptic curve arithmetic.
@@ -828,5 +860,143 @@ test "AffinePoint: add should give the proper point addition" {
             .y = Felt252.fromInt(u256, 78981980789517450823121602653688575320503877484645249556098070515590001476),
             .infinity = false,
         }),
+    );
+}
+
+test "AffinePoint: sub P - P should give 0" {
+    const a: AffinePoint = .{
+        .x = Felt252.fromInt(u256, 874739451078007766457464989),
+        .y = Felt252.fromInt(u256, 498516619889999230417086521843493582191978251645677012430043846185431670262),
+        .infinity = false,
+    };
+
+    try expectEqual(
+        AffinePoint{
+            .x = Felt252.zero(),
+            .y = Felt252.zero(),
+            .infinity = true,
+        },
+        try a.sub(&a),
+    );
+}
+
+test "AffinePoint: sub P - 0 should give P" {
+    const a: AffinePoint = .{
+        .x = Felt252.fromInt(u256, 874739451078007766457464989),
+        .y = Felt252.fromInt(u256, 498516619889999230417086521843493582191978251645677012430043846185431670262),
+        .infinity = false,
+    };
+
+    try expectEqual(a, try a.sub(&.{}));
+}
+
+test "AffinePoint: sub 0 - P should give -P" {
+    const a: AffinePoint = .{
+        .x = Felt252.fromInt(u256, 874739451078007766457464989),
+        .y = Felt252.fromInt(u256, 498516619889999230417086521843493582191978251645677012430043846185431670262),
+        .infinity = false,
+    };
+
+    try expectEqual(a.neg(), try AffinePoint.identity().sub(&a));
+}
+
+test "AffinePoint: sub P1 - P2 should give P1 + (-P2)" {
+    const a: AffinePoint = .{
+        .x = Felt252.fromInt(u256, 874739451078007766457464989),
+        .y = Felt252.fromInt(u256, 498516619889999230417086521843493582191978251645677012430043846185431670262),
+        .infinity = false,
+    };
+
+    try expectEqual(
+        AffinePoint{
+            .x = Felt252.fromInt(u256, 3170839098387265895893008062780951484244114197556826317838387523115006188371),
+            .y = Felt252.fromInt(u256, 816850407800303493850322799005343907936137841827655002556778477319881342108),
+            .infinity = false,
+        },
+        try a.sub(&.{
+            .x = Felt252.fromInt(u256, 874739451078007766457464),
+            .y = Felt252.fromInt(u256, 3202429691477156140440114086107030603959626074522568741397770080517060801394),
+            .infinity = false,
+        }),
+    );
+}
+
+test "AffinePoint: subAssign P - P should give 0" {
+    var a: AffinePoint = .{
+        .x = Felt252.fromInt(u256, 874739451078007766457464989),
+        .y = Felt252.fromInt(u256, 498516619889999230417086521843493582191978251645677012430043846185431670262),
+        .infinity = false,
+    };
+
+    try a.subAssign(&a);
+
+    try expectEqual(
+        AffinePoint{
+            .x = Felt252.zero(),
+            .y = Felt252.zero(),
+            .infinity = true,
+        },
+        a,
+    );
+}
+
+test "AffinePoint: subAssign P - 0 should give P" {
+    var a: AffinePoint = .{
+        .x = Felt252.fromInt(u256, 874739451078007766457464989),
+        .y = Felt252.fromInt(u256, 498516619889999230417086521843493582191978251645677012430043846185431670262),
+        .infinity = false,
+    };
+
+    try a.subAssign(&.{});
+
+    try expectEqual(
+        AffinePoint{
+            .x = Felt252.fromInt(u256, 874739451078007766457464989),
+            .y = Felt252.fromInt(u256, 498516619889999230417086521843493582191978251645677012430043846185431670262),
+            .infinity = false,
+        },
+        a,
+    );
+}
+
+test "AffinePoint: subAssign 0 - P should give -P" {
+    var a = AffinePoint.identity();
+
+    try a.subAssign(&.{
+        .x = Felt252.fromInt(u256, 874739451078007766457464989),
+        .y = Felt252.fromInt(u256, 498516619889999230417086521843493582191978251645677012430043846185431670262),
+        .infinity = false,
+    });
+
+    try expectEqual(
+        AffinePoint.initUnchecked(
+            Felt252.fromInt(u256, 874739451078007766457464989),
+            Felt252.fromInt(u256, 498516619889999230417086521843493582191978251645677012430043846185431670262),
+            false,
+        ).neg(),
+        a,
+    );
+}
+
+test "AffinePoint: subAssign P1 - P2 should give P1 + (-P2)" {
+    var a: AffinePoint = .{
+        .x = Felt252.fromInt(u256, 874739451078007766457464989),
+        .y = Felt252.fromInt(u256, 498516619889999230417086521843493582191978251645677012430043846185431670262),
+        .infinity = false,
+    };
+
+    try a.subAssign(&.{
+        .x = Felt252.fromInt(u256, 874739451078007766457464),
+        .y = Felt252.fromInt(u256, 3202429691477156140440114086107030603959626074522568741397770080517060801394),
+        .infinity = false,
+    });
+
+    try expectEqual(
+        AffinePoint{
+            .x = Felt252.fromInt(u256, 3170839098387265895893008062780951484244114197556826317838387523115006188371),
+            .y = Felt252.fromInt(u256, 816850407800303493850322799005343907936137841827655002556778477319881342108),
+            .infinity = false,
+        },
+        a,
     );
 }
