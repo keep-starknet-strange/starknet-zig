@@ -3,8 +3,7 @@
 const std = @import("std");
 
 const Felt252 = @import("../fields/starknet.zig").Felt252;
-const ALPHA = @import("./curve_params.zig").ALPHA;
-const BETA = @import("./curve_params.zig").BETA;
+const CurveParams = @import("./curve_params.zig");
 const expect = std.testing.expect;
 const expectEqual = std.testing.expectEqual;
 const expectError = std.testing.expectError;
@@ -186,14 +185,104 @@ pub const AffinePoint = struct {
     /// # Example
     ///
     /// ```zig
-    /// const point = AffinePoint.init(x_value, y_value, false);
+    /// const point = AffinePoint.initUnchecked(x_value, y_value, false);
     /// ```
     ///
     /// This creates a new affine point with the x-coordinate `x_value`, the y-coordinate `y_value`,
     /// and sets the infinity flag to `false`.
     ///
-    pub fn init(x: Felt252, y: Felt252, infinity: bool) Self {
+    pub fn initUnchecked(x: Felt252, y: Felt252, infinity: bool) Self {
         return .{ .x = x, .y = y, .infinity = infinity };
+    }
+
+    /// Returns the identity element of the elliptic curve.
+    ///
+    /// This function returns the identity element of the elliptic curve, which is the zero point
+    /// represented as the point at infinity (denoted as `O`). The identity element serves as the
+    /// neutral element in elliptic curve arithmetic.
+    ///
+    /// # Returns
+    ///
+    /// The identity element of the elliptic curve, represented as the zero point with the infinity flag set to true.
+    ///
+    /// # Remarks
+    ///
+    /// The identity element (`O`) behaves as the additive identity in elliptic curve arithmetic. Adding
+    /// it to any other point (`O + P`) yields the other point `P`, and adding it to itself (`O + O`)
+    /// results in the identity element `O`.
+    ///
+    pub inline fn identity() Self {
+        return .{};
+    }
+
+    /// Returns the generator point of the elliptic curve.
+    ///
+    /// This function retrieves and returns the pre-defined generator point G (base point). The generator point G is a constant point on the curve that, when multiplied by integers within a certain range, can generate any other point in its subgroup over the curve.
+    ///
+    /// # Returns
+    ///
+    /// The generator point G of the elliptic curve, which serves as the basis for generating all other points
+    /// in its subgroup over the curve.
+    pub inline fn generator() Self {
+        return CurveParams.GENERATOR;
+    }
+
+    /// Determines whether the affine point lies on the elliptic curve.
+    ///
+    /// This function checks if the given affine point lies on the elliptic curve defined by the Short Weierstrass equation:
+    /// y^2 = x^3 + a * x + b, where (x, y) are the coordinates of the affine point and a, b are curve parameters.
+    ///
+    /// # Arguments
+    ///
+    /// * `self` - A pointer to the affine point to be checked.
+    ///
+    /// # Returns
+    ///
+    /// Returns true if the point lies on the elliptic curve, false otherwise.
+    ///
+    /// # Remarks
+    ///
+    /// The function handles the case of the point at infinity, which is always considered to be on the curve.
+    /// For finite points, it evaluates whether the equation y^2 = x^3 + ax + b holds true.
+    /// If the point lies on the curve, it returns true; otherwise, it returns false.
+    ///
+    pub fn isOnCurve(self: *const Self) bool {
+        // Check if the point is at infinity.
+        if (self.infinity) return true;
+
+        // Calculate the right-hand side of the elliptic curve equation: x^3 + ax + b.
+        const rhs = self.x.square().mul(self.x).add(
+            CurveParams.ALPHA.mul(self.x),
+        ).add(CurveParams.BETA);
+
+        // Check if the calculated right-hand side is equal to the square of the y-coordinate.
+        return rhs.equal(self.y.square());
+    }
+
+    /// Computes the negation of the given affine point on the elliptic curve.
+    ///
+    /// This function calculates the negation of the given affine point on the elliptic curve, which is the point obtained by reflecting the original point across the x-axis.
+    ///
+    /// If the original point is at infinity, its negation remains the point at infinity.
+    ///
+    /// # Arguments
+    ///
+    /// * `self` - The affine point to be negated.
+    ///
+    /// # Returns
+    ///
+    /// The negation of the given affine point on the elliptic curve.
+    ///
+    /// # Remarks
+    ///
+    /// The negation operation is defined such that if the original point P has coordinates (x, y), its negation -P has coordinates (x, -y).
+    /// The negation of the point at infinity remains the point at infinity, as it is the additive identity in elliptic curve arithmetic.
+    pub fn neg(self: Self) Self {
+        return .{
+            .x = self.x,
+            .y = self.y.neg(),
+            .infinity = self.infinity,
+        };
     }
 
     /// Adds another elliptic curve point to this point.
@@ -227,11 +316,8 @@ pub const AffinePoint = struct {
         return cp;
     }
 
-    pub fn subAssign(self: *Self, rhs: Self) void {
-        var rhs_copy = rhs;
-
-        rhs_copy.y = rhs_copy.y.neg();
-        self.addAssign(&rhs_copy);
+    pub fn subAssign(self: *Self, rhs: *const Self) void {
+        try self.addAssign(&rhs.y.neg());
     }
 
     /// Adds another affine point to this point in the context of elliptic curve arithmetic.
@@ -342,7 +428,7 @@ pub const AffinePoint = struct {
     pub fn fromX(x: Felt252) EcPointError!Self {
         return .{
             .x = x,
-            .y = x.mul(x).mul(x).add(ALPHA.mul(x)).add(BETA).sqrt() orelse return EcPointError.SqrtNotExist,
+            .y = x.mul(x).mul(x).add(CurveParams.ALPHA.mul(x)).add(CurveParams.BETA).sqrt() orelse return EcPointError.SqrtNotExist,
             .infinity = false,
         };
     }
@@ -366,6 +452,102 @@ test "AffinePoint: default value should correspond to identity" {
     );
 }
 
+test "AffinePoint: identity function should correspond to identity" {
+    try expectEqual(
+        AffinePoint{ .x = Felt252.zero(), .y = Felt252.zero(), .infinity = true },
+        AffinePoint.identity(),
+    );
+}
+
+test "AffinePoint: generator function should return the generator of the curve" {
+    try expectEqual(
+        AffinePoint{
+            .x = .{
+                .fe = [4]u64{
+                    14484022957141291997,
+                    5884444832209845738,
+                    299981207024966779,
+                    232005955912912577,
+                },
+            },
+            .y = .{
+                .fe = [4]u64{
+                    6241159653446987914,
+                    664812301889158119,
+                    18147424675297964973,
+                    405578048423154473,
+                },
+            },
+            .infinity = false,
+        },
+        AffinePoint.generator(),
+    );
+}
+
+test "AffinePoint: isOnCurve should return true if the point is on the curve" {
+    const a: AffinePoint = .{
+        .x = Felt252.fromInt(u256, 874739451078007766457464989),
+        .y = Felt252.fromInt(u256, 498516619889999230417086521843493582191978251645677012430043846185431670262),
+        .infinity = false,
+    };
+
+    try expect(a.isOnCurve());
+
+    const b: AffinePoint = .{
+        .x = Felt252.fromInt(u256, 874739451078007766457464),
+        .y = Felt252.fromInt(u256, 3202429691477156140440114086107030603959626074522568741397770080517060801394),
+        .infinity = false,
+    };
+
+    try expect(b.isOnCurve());
+}
+
+test "AffinePoint: isOnCurve should return false if the point is not on the curve" {
+    const a: AffinePoint = .{
+        .x = Felt252.fromInt(u256, 10),
+        .y = Felt252.fromInt(u256, 100),
+        .infinity = false,
+    };
+
+    try expect(!a.isOnCurve());
+
+    const b: AffinePoint = .{
+        .x = Felt252.fromInt(u256, 5),
+        .y = Felt252.fromInt(u256, 30),
+        .infinity = false,
+    };
+
+    try expect(!b.isOnCurve());
+}
+
+test "AffinePoint: isOnCurve should return true if the point is at infinity" {
+    try expect(AffinePoint.identity().isOnCurve());
+}
+
+test "AffinePoint: neg identity should return identity" {
+    try expectEqual(
+        AffinePoint{ .x = Felt252.zero(), .y = Felt252.zero(), .infinity = true },
+        AffinePoint.identity().neg(),
+    );
+}
+
+test "AffinePoint: neg a random point should return (x, -y)" {
+    const a: AffinePoint = .{
+        .x = Felt252.fromInt(u256, 874739451078007766457464989),
+        .y = Felt252.fromInt(u256, 498516619889999230417086521843493582191978251645677012430043846185431670262),
+        .infinity = false,
+    };
+
+    try expectEqual(
+        AffinePoint{
+            .x = Felt252.fromInt(u256, 874739451078007766457464989),
+            .y = Felt252.fromInt(u256, 3119986168776131983280236261251576523431128963685919687543048209950440350219),
+            .infinity = false,
+        },
+        a.neg(),
+    );
+}
+
 test "AffinePoint: init should init an affine point with the provided coordinates" {
     try expectEqual(
         AffinePoint{
@@ -373,7 +555,7 @@ test "AffinePoint: init should init an affine point with the provided coordinate
             .y = Felt252.fromInt(u8, 5),
             .infinity = false,
         },
-        AffinePoint.init(
+        AffinePoint.initUnchecked(
             Felt252.fromInt(u8, 10),
             Felt252.fromInt(u8, 5),
             false,
@@ -386,7 +568,7 @@ test "AffinePoint: init should init an affine point with the provided coordinate
             .y = Felt252.fromInt(u8, 5),
             .infinity = true,
         },
-        AffinePoint.init(
+        AffinePoint.initUnchecked(
             Felt252.fromInt(u8, 10),
             Felt252.fromInt(u8, 5),
             true,
