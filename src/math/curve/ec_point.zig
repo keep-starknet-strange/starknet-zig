@@ -465,10 +465,29 @@ pub const AffinePoint = struct {
         };
     }
 
-    pub fn fromProjectivePoint(p: ProjectivePoint) Self {
-        // always one, that is why we can unwrap, unreachable will not happen
-        const zinv = if (p.z.inv()) |zinv| zinv else unreachable;
+    /// Converts a projective point to an affine point on the elliptic curve.
+    ///
+    /// This function converts a projective point representation to an affine point representation on the elliptic curve.
+    /// Projective coordinates are used to represent points on elliptic curves efficiently.
+    ///
+    /// # Arguments
+    ///
+    /// * `p` - A pointer to the projective point to be converted.
+    ///
+    /// # Returns
+    ///
+    /// An affine point on the elliptic curve derived from the provided projective point.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the inverse of the `z` coordinate of the projective point cannot be computed, such as when `z` is zero.
+    ///
+    pub fn fromProjectivePoint(p: *const ProjectivePoint) Self {
+        // Compute the inverse of the `z` coordinate of the projective point.
+        // Note: `zinv` is always one, which is why we can unwrap the result.
+        const zinv = p.z.inv().?;
 
+        // Create and return the resulting affine point.
         return .{
             .x = p.x.mul(zinv),
             .y = p.y.mul(zinv),
@@ -998,5 +1017,21 @@ test "AffinePoint: subAssign P1 - P2 should give P1 + (-P2)" {
             .infinity = false,
         },
         a,
+    );
+}
+
+test "AffinePoint: fromProjectivePoint should give an AffinePoint from a ProjectivePoint" {
+    const a: ProjectivePoint = .{
+        .x = Felt252.fromInt(u256, 874739451078007766457464989),
+        .y = Felt252.fromInt(u256, 498516619889999230417086521843493582191978251645677012430043846185431670262),
+    };
+
+    try expectEqual(
+        AffinePoint{
+            .x = Felt252.fromInt(u256, 874739451078007766457464989),
+            .y = Felt252.fromInt(u256, 498516619889999230417086521843493582191978251645677012430043846185431670262),
+            .infinity = false,
+        },
+        AffinePoint.fromProjectivePoint(&a),
     );
 }
