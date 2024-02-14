@@ -10,6 +10,7 @@ const expectError = std.testing.expectError;
 
 pub const EcPointError = error{
     SqrtNotExist,
+    PointNotOnCurve,
 };
 
 pub const ProjectivePoint = struct {
@@ -193,6 +194,54 @@ pub const AffinePoint = struct {
     ///
     pub fn initUnchecked(x: Felt252, y: Felt252, infinity: bool) Self {
         return .{ .x = x, .y = y, .infinity = infinity };
+    }
+
+    /// Initializes a new affine point with the given coordinates.
+    ///
+    /// This function creates a new affine point with the specified x-coordinate, y-coordinate,
+    /// and infinity flag, and returns it. Additionally, it ensures that the generated point lies
+    /// on the elliptic curve.
+    ///
+    /// # Arguments
+    ///
+    /// * `x` - The x-coordinate of the affine point.
+    /// * `y` - The y-coordinate of the affine point.
+    /// * `infinity` - A boolean flag indicating whether the point is at infinity.
+    ///
+    /// # Returns
+    ///
+    /// If the provided coordinates result in a point on the elliptic curve, it returns the newly
+    /// initialized affine point. Otherwise, it returns an error indicating that the point is not
+    /// on the curve.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error of type `EcPointError` if the provided coordinates do not correspond to
+    /// a point on the elliptic curve.
+    ///
+    /// # Example
+    ///
+    /// ```zig
+    /// const point = try AffinePoint.init(x_value, y_value, false);
+    /// ```
+    ///
+    /// This creates a new affine point with the x-coordinate `x_value`, the y-coordinate `y_value`,
+    /// and sets the infinity flag to `false`. If the resulting point is not on the curve, it returns
+    /// an error.
+    ///
+    pub fn init(x: Felt252, y: Felt252, infinity: bool) EcPointError!Self {
+        // Create the affine point using the provided coordinates.
+        const point: Self = .{
+            .x = x,
+            .y = y,
+            .infinity = infinity,
+        };
+
+        // Check if the point lies on the elliptic curve.
+        if (!point.isOnCurve()) return EcPointError.PointNotOnCurve;
+
+        // Return the initialized affine point.
+        return point;
     }
 
     /// Returns the identity element of the elliptic curve.
@@ -599,7 +648,7 @@ test "AffinePoint: neg a random point should return (x, -y)" {
     );
 }
 
-test "AffinePoint: init should init an affine point with the provided coordinates" {
+test "AffinePoint: initUnchecked should initialize an affine point with the provided coordinates" {
     try expectEqual(
         AffinePoint{
             .x = Felt252.fromInt(u8, 10),
@@ -623,6 +672,32 @@ test "AffinePoint: init should init an affine point with the provided coordinate
             Felt252.fromInt(u8, 10),
             Felt252.fromInt(u8, 5),
             true,
+        ),
+    );
+}
+
+test "AffinePoint: init should return an error is the provided point is not on the curve" {
+    try expectError(
+        EcPointError.PointNotOnCurve,
+        AffinePoint.init(
+            Felt252.fromInt(u8, 10),
+            Felt252.fromInt(u8, 5),
+            false,
+        ),
+    );
+}
+
+test "AffinePoint: init should initialize a point if point is on the curve" {
+    try expectEqual(
+        AffinePoint{
+            .x = Felt252.fromInt(u256, 874739451078007766457464989),
+            .y = Felt252.fromInt(u256, 498516619889999230417086521843493582191978251645677012430043846185431670262),
+            .infinity = false,
+        },
+        try AffinePoint.init(
+            Felt252.fromInt(u256, 874739451078007766457464989),
+            Felt252.fromInt(u256, 498516619889999230417086521843493582191978251645677012430043846185431670262),
+            false,
         ),
     );
 }
