@@ -13,20 +13,51 @@ pub const EcPointError = error{
     PointNotOnCurve,
 };
 
+/// Represents a point in projective space over a given field.
+///
+/// Projective points extend the concept of affine points by introducing an additional coordinate
+/// (z-coordinate) to accommodate "points at infinity". This structure encapsulates the x, y, and z
+/// coordinates of a point in projective space, along with a boolean flag indicating whether the
+/// point is at infinity.
 pub const ProjectivePoint = struct {
     const Self = @This();
 
+    /// The x-coordinate of the projective point.
     x: Felt252 = Felt252.zero(),
+    /// The y-coordinate of the projective point.
     y: Felt252 = Felt252.zero(),
+    /// The z-coordinate of the projective point.
     z: Felt252 = Felt252.one(),
-    infinity: bool = false,
+    /// A boolean flag indicating whether the point is at infinity.
+    infinity: bool = true,
 
-    pub fn fromAffinePoint(p: AffinePoint) Self {
-        return .{ .x = p.x, .y = p.y };
+    /// Constructs a projective point from an affine point.
+    ///
+    /// This function converts an affine point to a projective point, setting its coordinates
+    /// accordingly and preserving the infinity flag.
+    ///
+    /// # Arguments
+    ///
+    /// * `p` - A pointer to the affine point.
+    ///
+    /// # Returns
+    ///
+    /// A projective point constructed from the given affine point.
+    pub fn fromAffinePoint(p: *const AffinePoint) Self {
+        return .{ .x = p.x, .y = p.y, .infinity = p.infinity };
     }
 
-    fn identity() Self {
-        return .{ .infinity = true };
+    /// Returns the identity element of the projective space.
+    ///
+    /// This function returns the identity element of the projective space, which is the zero point
+    /// represented as the point at infinity. The identity element serves as the neutral element
+    /// in projective space arithmetic.
+    ///
+    /// # Returns
+    ///
+    /// The identity element of the projective space, represented as the point at infinity.
+    pub fn identity() Self {
+        return .{};
     }
 
     pub fn doubleAssign(self: *Self) void {
@@ -544,6 +575,44 @@ pub const AffinePoint = struct {
         };
     }
 };
+
+test "ProjectivePoint: fromAffinePoint should return a projective point based on an affine point" {
+    try expectEqual(
+        ProjectivePoint{
+            .x = Felt252.zero(),
+            .y = Felt252.zero(),
+            .z = Felt252.one(),
+            .infinity = true,
+        },
+        ProjectivePoint.fromAffinePoint(&.{}),
+    );
+
+    try expectEqual(
+        ProjectivePoint{
+            .x = Felt252.fromInt(u256, 874739451078007766457464989),
+            .y = Felt252.fromInt(u256, 498516619889999230417086521843493582191978251645677012430043846185431670262),
+            .z = Felt252.one(),
+            .infinity = false,
+        },
+        ProjectivePoint.fromAffinePoint(&.{
+            .x = Felt252.fromInt(u256, 874739451078007766457464989),
+            .y = Felt252.fromInt(u256, 498516619889999230417086521843493582191978251645677012430043846185431670262),
+            .infinity = false,
+        }),
+    );
+}
+
+test "ProjectivePoint: identity should return the point at infinity" {
+    try expectEqual(
+        ProjectivePoint{
+            .x = Felt252.zero(),
+            .y = Felt252.zero(),
+            .z = Felt252.one(),
+            .infinity = true,
+        },
+        ProjectivePoint.identity(),
+    );
+}
 
 test "AffinePoint: default value should correspond to identity" {
     try expectEqual(
