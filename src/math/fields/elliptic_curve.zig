@@ -51,7 +51,7 @@ pub const ECPoint = struct {
     pub fn ecAdd(self: *Self, point: ECPoint) ECError!ECPoint {
 
         // The x coordinates of the two points must be different.
-        if (self.x.sub(point.x).equal(Felt252.zero())) {
+        if (self.x.sub(point.x).eql(Felt252.zero())) {
             return ECError.XCoordinatesAreEqual;
         }
         const x_diff = self.x.sub(point.x);
@@ -85,7 +85,7 @@ pub const ECPoint = struct {
     pub fn ecDouble(self: *Self, alpha: Felt252) ECError!ECPoint {
 
         // Assumes the point is given in affine form (x, y) and has y != 0.
-        if (self.y.equal(Felt252.zero())) {
+        if (self.y.eql(Felt252.zero())) {
             return ECError.YCoordinateIsZero;
         }
         const m = try self.ecDoubleSlope(alpha);
@@ -122,7 +122,7 @@ pub const ECPoint = struct {
     pub fn pointOnCurve(self: *const Self, alpha: Felt252, beta: Felt252) bool {
         const lhs = self.y.pow(2);
         const rhs = self.x.pow(3).add(self.x.mul(alpha).add(beta));
-        return lhs.equal(rhs);
+        return lhs.eql(rhs);
     }
 };
 
@@ -156,7 +156,7 @@ pub fn ecOpImpl(const_partial_sum: ECPoint, const_doubled_point: ECPoint, m: Fel
     var doubled_point = const_doubled_point;
 
     for (0..height) |_| {
-        if (doubled_point.x.sub(partial_sum.x).equal(Felt252.zero())) {
+        if (doubled_point.x.sub(partial_sum.x).eql(Felt252.zero())) {
             return ECError.XCoordinatesAreEqual;
         }
         if (slope & 1 != 0) {

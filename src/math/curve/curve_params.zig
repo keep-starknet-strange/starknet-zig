@@ -1,7 +1,7 @@
 // code ported from starknet-curve:
 // https://github.com/xJonathanLEI/starknet-rs/blob/0857bd6cd3bd34cbb06708f0a185757044171d8d/starknet-curve/src/curve_params.rs
 const Felt252 = @import("../fields/starknet.zig").Felt252;
-const AffinePoint = @import("ec_point.zig").AffinePoint;
+const AffinePoint = @import("./short_weierstrass/affine.zig").AffinePoint;
 
 pub const EC_ORDER: Felt252 = .{
     .fe = [4]u64{

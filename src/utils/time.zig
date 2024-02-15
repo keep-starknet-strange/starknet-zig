@@ -75,16 +75,16 @@ pub const DateTime = struct {
         .era = .AD,
     };
 
-    pub fn eql(self: Self, other: Self) bool {
-        return self.ms == other.ms and
-            self.seconds == other.seconds and
-            self.minutes == other.minutes and
-            self.hours == other.hours and
-            self.days == other.days and
-            self.months == other.months and
-            self.years == other.years and
-            self.timezone == other.timezone and
-            self.weekday == other.weekday;
+    pub fn eql(self: Self, rhs: Self) bool {
+        return self.ms == rhs.ms and
+            self.seconds == rhs.seconds and
+            self.minutes == rhs.minutes and
+            self.hours == rhs.hours and
+            self.days == rhs.days and
+            self.months == rhs.months and
+            self.years == rhs.years and
+            self.timezone == rhs.timezone and
+            self.weekday == rhs.weekday;
     }
 
     pub fn addMs(self: Self, count: u64) Self {

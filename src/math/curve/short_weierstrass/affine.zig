@@ -2,184 +2,14 @@
 // https://github.com/xJonathanLEI/starknet-rs/blob/0857bd6cd3bd34cbb06708f0a185757044171d8d/starknet-curve/src/ec_point.rs
 const std = @import("std");
 
-const Felt252 = @import("../fields/starknet.zig").Felt252;
-const CurveParams = @import("./curve_params.zig");
+const Felt252 = @import("../../fields/starknet.zig").Felt252;
+const CurveParams = @import("../curve_params.zig");
+const EcPointError = @import("../errors.zig").EcPointError;
+const ProjectivePoint = @import("./projective.zig").ProjectivePoint;
+const ProjectivePointJacobian = @import("./projective_jacobian.zig").ProjectivePointJacobian;
 const expect = std.testing.expect;
 const expectEqual = std.testing.expectEqual;
 const expectError = std.testing.expectError;
-
-pub const EcPointError = error{
-    SqrtNotExist,
-    PointNotOnCurve,
-};
-
-/// Represents a point in projective space over a given field.
-///
-/// Projective points extend the concept of affine points by introducing an additional coordinate
-/// (z-coordinate) to accommodate "points at infinity". This structure encapsulates the x, y, and z
-/// coordinates of a point in projective space, along with a boolean flag indicating whether the
-/// point is at infinity.
-pub const ProjectivePoint = struct {
-    const Self = @This();
-
-    /// The x-coordinate of the projective point.
-    x: Felt252 = Felt252.zero(),
-    /// The y-coordinate of the projective point.
-    y: Felt252 = Felt252.zero(),
-    /// The z-coordinate of the projective point.
-    z: Felt252 = Felt252.one(),
-    /// A boolean flag indicating whether the point is at infinity.
-    infinity: bool = true,
-
-    /// Constructs a projective point from an affine point.
-    ///
-    /// This function converts an affine point to a projective point, setting its coordinates
-    /// accordingly and preserving the infinity flag.
-    ///
-    /// # Arguments
-    ///
-    /// * `p` - A pointer to the affine point.
-    ///
-    /// # Returns
-    ///
-    /// A projective point constructed from the given affine point.
-    pub fn fromAffinePoint(p: *const AffinePoint) Self {
-        return .{ .x = p.x, .y = p.y, .infinity = p.infinity };
-    }
-
-    /// Returns the identity element of the projective space.
-    ///
-    /// This function returns the identity element of the projective space, which is the zero point
-    /// represented as the point at infinity. The identity element serves as the neutral element
-    /// in projective space arithmetic.
-    ///
-    /// # Returns
-    ///
-    /// The identity element of the projective space, represented as the point at infinity.
-    pub fn identity() Self {
-        return .{};
-    }
-
-    pub fn doubleAssign(self: *Self) void {
-        if (self.infinity) {
-            return;
-        }
-
-        // t=3x^2+az^2 with a=1 from stark curve
-        const t = Felt252.three().mul(self.x).mul(self.x).add(self.z.mul(self.z));
-        const u = Felt252.two().mul(self.y).mul(self.z);
-        const v = Felt252.two().mul(u).mul(self.x).mul(self.y);
-        const w = t.mul(t).sub(Felt252.two().mul(v));
-
-        const uy = u.mul(self.y);
-
-        self.* = .{
-            .x = u.mul(w),
-            .y = t.mul(v.sub(w)).sub(Felt252.two().mul(uy).mul(uy)),
-            .z = u.mul(u).mul(u),
-            .infinity = self.infinity,
-        };
-    }
-
-    pub fn mulByBits(self: Self, rhs: [@bitSizeOf(u256)]bool) Self {
-        var product = ProjectivePoint.identity();
-
-        inline for (1..@bitSizeOf(u256) + 1) |idx| {
-            product.doubleAssign();
-            if (rhs[@bitSizeOf(u256) - idx]) {
-                product.addAssign(self);
-            }
-        }
-        return product;
-    }
-
-    fn addAssign(self: *Self, rhs: ProjectivePoint) void {
-        if (rhs.infinity) {
-            return;
-        }
-
-        if (self.infinity) {
-            self.* = rhs;
-            return;
-        }
-
-        const u_0 = self.x.mul(rhs.z);
-        const u_1 = rhs.x.mul(self.z);
-        if (u_0.equal(u_1)) {
-            self.doubleAssign();
-            return;
-        }
-
-        const t0 = self.y.mul(rhs.z);
-        const t1 = rhs.y.mul(self.z);
-        const t = t0.sub(t1);
-
-        const u = u_0.sub(u_1);
-        const u_2 = u.mul(u);
-
-        const v = self.z.mul(rhs.z);
-
-        // t * t * v - u2 * (u0 + u1);
-        const w = t.mul(t.mul(v)).sub(u_2.mul(u_0.add(u_1)));
-        const u_3 = u.mul(u_2);
-
-        self.* = .{
-            .x = u.mul(w),
-            .y = t.mul(u_0.mul(u_2).sub(w)).sub(t0.mul(u_3)),
-            .z = u_3.mul(v),
-            .infinity = self.infinity,
-        };
-    }
-
-    pub fn addAssignAffinePoint(self: *Self, rhs: AffinePoint) void {
-        if (rhs.infinity) {
-            return;
-        }
-
-        if (self.infinity) {
-            self.* = .{
-                .x = rhs.x,
-                .y = rhs.y,
-                .z = Felt252.one(),
-                .infinity = rhs.infinity,
-            };
-            return;
-        }
-
-        const u_0 = self.x;
-        const u_1 = rhs.x.mul(self.z);
-        const t0 = self.y;
-        const t1 = rhs.y.mul(self.z);
-
-        if (u_0.equal(u_1)) {
-            if (!t0.equal(t1)) {
-                self.infinity = true;
-            } else {
-                self.doubleAssign();
-            }
-            return;
-        }
-
-        const t = t0.sub(t1);
-        const u = u_0.sub(u_1);
-        const u_2 = u.mul(u);
-
-        const v = self.z;
-        const w = t.mul(t).mul(v).sub(u_2.mul(u_0.add(u_1)));
-        const u_3 = u.mul(u_2);
-
-        const x = u.mul(w);
-        const y = t.mul(u_0.mul(u_2).sub(w)).sub(t0.mul(u_3));
-        const z = u_3.mul(v);
-
-        self.* = .{
-            .x = x,
-            .y = y,
-            .z = z,
-            .infinity = self.infinity,
-        };
-    }
-};
 
 /// This module defines a struct representing an affine point on an elliptic curve in the Short Weierstrass form.
 ///
@@ -288,7 +118,7 @@ pub const AffinePoint = struct {
     /// # Remarks
     ///
     /// The identity element (`O`) behaves as the additive identity in elliptic curve arithmetic. Adding
-    /// it to any other point (`O + P`) yields the other point `P`, and adding it to itself (`O + O`)
+    /// it to any rhs point (`O + P`) yields the rhs point `P`, and adding it to itself (`O + O`)
     /// results in the identity element `O`.
     ///
     pub inline fn identity() Self {
@@ -297,14 +127,27 @@ pub const AffinePoint = struct {
 
     /// Returns the generator point of the elliptic curve.
     ///
-    /// This function retrieves and returns the pre-defined generator point G (base point). The generator point G is a constant point on the curve that, when multiplied by integers within a certain range, can generate any other point in its subgroup over the curve.
+    /// This function retrieves and returns the pre-defined generator point G (base point). The generator point G is a constant point on the curve that, when multiplied by integers within a certain range, can generate any rhs point in its subgroup over the curve.
     ///
     /// # Returns
     ///
-    /// The generator point G of the elliptic curve, which serves as the basis for generating all other points
+    /// The generator point G of the elliptic curve, which serves as the basis for generating all rhs points
     /// in its subgroup over the curve.
     pub inline fn generator() Self {
         return CurveParams.GENERATOR;
+    }
+
+    /// Checks if the affine point is the identity element.
+    ///
+    /// This function returns true if the provided affine point is the identity element of the
+    /// elliptic curve, which is represented as the point at infinity (`O`). Otherwise, it returns false.
+    ///
+    /// # Returns
+    ///
+    /// `true` if the affine point is the identity element (`O`), otherwise `false`.
+    ///
+    pub inline fn isIdentity(self: *const Self) bool {
+        return self.infinity;
     }
 
     /// Determines whether the affine point lies on the elliptic curve.
@@ -336,7 +179,7 @@ pub const AffinePoint = struct {
         ).add(CurveParams.BETA);
 
         // Check if the calculated right-hand side is equal to the square of the y-coordinate.
-        return rhs.equal(self.y.square());
+        return rhs.eql(self.y.square());
     }
 
     /// Computes the negation of the given affine point on the elliptic curve.
@@ -372,7 +215,7 @@ pub const AffinePoint = struct {
     /// # Arguments
     ///
     /// * `self` - The first elliptic curve point.
-    /// * `other` - A pointer to the second elliptic curve point being added.
+    /// * `rhs` - A pointer to the second elliptic curve point being added.
     ///
     /// # Returns
     ///
@@ -381,13 +224,13 @@ pub const AffinePoint = struct {
     /// # Errors
     ///
     /// Returns an error if any error occurs during the addition operation.
-    pub fn add(self: Self, other: *const Self) !Self {
+    pub fn add(self: Self, rhs: *const Self) !Self {
         // Make a copy of the original point
-        var cp = self;
+        var a = self;
         // Perform point addition in place
-        try Self.addAssign(&cp, other);
+        try Self.addAssign(&a, rhs);
         // Return the resulting point
-        return cp;
+        return a;
     }
 
     /// Subtracts another affine point from this point in the context of elliptic curve arithmetic.
@@ -397,31 +240,31 @@ pub const AffinePoint = struct {
     ///
     /// # Arguments
     ///
-    /// * `self` - The affine point from which the other point is subtracted.
-    /// * `other` - A pointer to the affine point being subtracted.
+    /// * `self` - The affine point from which the rhs point is subtracted.
+    /// * `rhs` - A pointer to the affine point being subtracted.
     ///
     /// # Returns
     ///
-    /// The result of subtracting the other point from this point, represented as a new affine point.
+    /// The result of subtracting the rhs point from this point, represented as a new affine point.
     ///
     /// # Errors
     ///
     /// Returns an error if an error occurs during the calculation, such as division by zero.
     ///
-    pub fn sub(self: Self, other: *const Self) !Self {
-        var cp = self;
-        try cp.addAssign(&other.neg());
-        return cp;
+    pub fn sub(self: Self, rhs: *const Self) !Self {
+        var a = self;
+        try a.addAssign(&rhs.neg());
+        return a;
     }
 
     /// Subtracts another affine point from this point in place in the context of elliptic curve arithmetic.
     ///
     /// This function performs point subtraction between two affine points on an elliptic curve in Short Weierstrass form.
-    /// It modifies the original point by subtracting the other point from it.
+    /// It modifies the original point by subtracting the rhs point from it.
     ///
     /// # Arguments
     ///
-    /// * `self` - A mutable reference to the affine point from which the other point is subtracted.
+    /// * `self` - A mutable reference to the affine point from which the rhs point is subtracted.
     /// * `rhs` - A pointer to the affine point being subtracted.
     ///
     /// # Errors
@@ -446,21 +289,21 @@ pub const AffinePoint = struct {
     /// Returns an error if division by zero occurs during the calculation of the slope.
     pub fn addAssign(self: *Self, rhs: *const AffinePoint) !void {
         // P + 0 = P
-        // If the other point is the point at infinity, no operation is needed.
+        // If the rhs point is the point at infinity, no operation is needed.
         if (rhs.infinity) return;
 
         // 0 + P = P
-        // If this point is the point at infinity, the result is set to the other point.
+        // If this point is the point at infinity, the result is set to the rhs point.
         if (self.infinity) {
             self.* = rhs.*;
             return;
         }
 
         // If both points have the same x-coordinate.
-        if (self.x.equal(rhs.x)) {
+        if (self.x.eql(rhs.x)) {
             // P + (-P) = I
-            // If the y-coordinates are negations of each other, resulting in point at infinity.
-            if (self.y.equal(rhs.y.neg())) {
+            // If the y-coordinates are negations of each rhs, resulting in point at infinity.
+            if (self.y.eql(rhs.y.neg())) {
                 // Set this point to the point at infinity.
                 self.* = .{};
             } else {
@@ -561,8 +404,10 @@ pub const AffinePoint = struct {
     /// # Errors
     ///
     /// Returns an error if the inverse of the `z` coordinate of the projective point cannot be computed, such as when `z` is zero.
-    ///
     pub fn fromProjectivePoint(p: *const ProjectivePoint) Self {
+        // Point at infinity
+        if (p.isIdentity()) return .{};
+
         // Compute the inverse of the `z` coordinate of the projective point.
         // Note: `zinv` is always one, which is why we can unwrap the result.
         const zinv = p.z.inv().?;
@@ -574,45 +419,24 @@ pub const AffinePoint = struct {
             .infinity = false,
         };
     }
+
+    pub fn fromProjectivePointJacobian(p: *const ProjectivePointJacobian) Self {
+        // Point at infinity
+        if (p.isIdentity()) return .{};
+
+        // Compute the inverse of the `z` coordinate of the projective point.
+        // Note: `z` is always non zero, so that it must have an inverse in the field.
+        const zinv = p.z.inv().?;
+        const zinv_squared = zinv.square();
+
+        // Create and return the resulting affine point.
+        return .{
+            .x = p.x.mul(zinv_squared),
+            .y = p.y.mul(zinv_squared).mul(zinv),
+            .infinity = false,
+        };
+    }
 };
-
-test "ProjectivePoint: fromAffinePoint should return a projective point based on an affine point" {
-    try expectEqual(
-        ProjectivePoint{
-            .x = Felt252.zero(),
-            .y = Felt252.zero(),
-            .z = Felt252.one(),
-            .infinity = true,
-        },
-        ProjectivePoint.fromAffinePoint(&.{}),
-    );
-
-    try expectEqual(
-        ProjectivePoint{
-            .x = Felt252.fromInt(u256, 874739451078007766457464989),
-            .y = Felt252.fromInt(u256, 498516619889999230417086521843493582191978251645677012430043846185431670262),
-            .z = Felt252.one(),
-            .infinity = false,
-        },
-        ProjectivePoint.fromAffinePoint(&.{
-            .x = Felt252.fromInt(u256, 874739451078007766457464989),
-            .y = Felt252.fromInt(u256, 498516619889999230417086521843493582191978251645677012430043846185431670262),
-            .infinity = false,
-        }),
-    );
-}
-
-test "ProjectivePoint: identity should return the point at infinity" {
-    try expectEqual(
-        ProjectivePoint{
-            .x = Felt252.zero(),
-            .y = Felt252.zero(),
-            .z = Felt252.one(),
-            .infinity = true,
-        },
-        ProjectivePoint.identity(),
-    );
-}
 
 test "AffinePoint: default value should correspond to identity" {
     try expectEqual(
@@ -1168,6 +992,7 @@ test "AffinePoint: fromProjectivePoint should give an AffinePoint from a Project
     const a: ProjectivePoint = .{
         .x = Felt252.fromInt(u256, 874739451078007766457464989),
         .y = Felt252.fromInt(u256, 498516619889999230417086521843493582191978251645677012430043846185431670262),
+        .z = Felt252.one(),
     };
 
     try expectEqual(

@@ -177,9 +177,9 @@ test "Felt252 zero" {
 }
 
 test "Felt252 equal" {
-    try expect(Felt252.zero().equal(Felt252.zero()));
-    try expect(Felt252.fromInt(u8, 10).equal(Felt252.fromInt(u8, 10)));
-    try expect(!Felt252.fromInt(u8, 100).equal(Felt252.fromInt(u8, 10)));
+    try expect(Felt252.zero().eql(Felt252.zero()));
+    try expect(Felt252.fromInt(u8, 10).eql(Felt252.fromInt(u8, 10)));
+    try expect(!Felt252.fromInt(u8, 100).eql(Felt252.fromInt(u8, 10)));
 }
 
 test "Felt252 isZero" {
@@ -309,7 +309,7 @@ test "Felt252 arithmetic operations" {
     const a = Felt252.one();
     const b = Felt252.two();
     const c = a.add(b);
-    try expect(c.equal(Felt252.three()));
+    try expect(c.eql(Felt252.three()));
 }
 
 test "Felt252 add" {

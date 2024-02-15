@@ -78,10 +78,10 @@ pub fn tonelliShanks(n: u512, p: u512) struct { u512, u512, bool } {
     return .{ result, p - result, true };
 }
 
-pub fn extendedGCD(self: i256, other: i256) struct { gcd: i256, x: i256, y: i256 } {
+pub fn extendedGCD(self: i256, rhs: i256) struct { gcd: i256, x: i256, y: i256 } {
     var s = [_]i256{ 0, 1 };
     var t = [_]i256{ 1, 0 };
-    var r = [_]i256{ other, self };
+    var r = [_]i256{ rhs, self };
 
     while (r[0] != 0) {
         const q = @divFloor(r[1], r[0]);

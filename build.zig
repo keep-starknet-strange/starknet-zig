@@ -36,7 +36,7 @@ pub fn build(b: *std.Build) void {
 
     // By making the run step depend on the install step, it will be run from the
     // installation directory rather than directly from within the cache directory.
-    // This is not necessary, however, if the application depends on other installed
+    // This is not necessary, however, if the application depends on rhs installed
     // files, this ensures they will be present and in the expected location.
     run_cmd.step.dependOn(b.getInstallStep());
 

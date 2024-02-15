@@ -322,13 +322,28 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
         /// Adds the current field element to another field element.
         pub fn add(
             self: Self,
-            other: Self,
+            rhs: Self,
         ) Self {
             var ret: F.NonMontgomeryDomainFieldElement = undefined;
             F.add(
                 &ret,
                 self.fe,
-                other.fe,
+                rhs.fe,
+            );
+            return .{ .fe = ret };
+        }
+
+        /// Double a field element.
+        ///
+        /// Adds the current field element to itself.
+        pub fn double(
+            self: Self,
+        ) Self {
+            var ret: F.NonMontgomeryDomainFieldElement = undefined;
+            F.add(
+                &ret,
+                self.fe,
+                self.fe,
             );
             return .{ .fe = ret };
         }
@@ -353,33 +368,33 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
         /// Subtracts another field element from the current field element.
         pub fn sub(
             self: Self,
-            other: Self,
+            rhs: Self,
         ) Self {
             var ret: F.MontgomeryDomainFieldElement = undefined;
             F.sub(
                 &ret,
                 self.fe,
-                other.fe,
+                rhs.fe,
             );
             return .{ .fe = ret };
         }
 
         pub fn mod(
             self: Self,
-            other: Self,
+            rhs: Self,
         ) Self {
-            return Self.fromInt(u256, @mod(self.toInteger(), other.toInteger()));
+            return Self.fromInt(u256, @mod(self.toInteger(), rhs.toInteger()));
         }
 
         // multiply two field elements and return the result modulo the modulus
         // support overflowed multiplication
         pub fn mulModFloor(
             self: Self,
-            other: Self,
+            rhs: Self,
             modulus: Self,
         ) Self {
             const s: u512 = @intCast(self.toInteger());
-            const o: u512 = @intCast(other.toInteger());
+            const o: u512 = @intCast(rhs.toInteger());
             const m: u512 = @intCast(modulus.toInteger());
 
             return Self.fromInt(u256, @intCast((s * o) % m));
@@ -390,13 +405,13 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
         /// Multiplies the current field element by another field element.
         pub fn mul(
             self: Self,
-            other: Self,
+            rhs: Self,
         ) Self {
             var ret: F.MontgomeryDomainFieldElement = undefined;
             F.mul(
                 &ret,
                 self.fe,
-                other.fe,
+                rhs.fe,
             );
             return .{ .fe = ret };
         }
@@ -441,14 +456,14 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
         ///
         /// Determines if the current field element is equal to zero.
         pub fn isZero(self: Self) bool {
-            return self.equal(base_zero);
+            return self.eql(base_zero);
         }
 
         /// Check if the field element is one.
         ///
         /// Determines if the current field element is equal to one.
         pub fn isOne(self: Self) bool {
-            return self.equal(one());
+            return self.eql(one());
         }
 
         pub fn modInverse(operand: Self, modulus: Self) !Self {
@@ -509,8 +524,8 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
         }
 
         /// Bitand operation
-        pub fn bitAnd(self: Self, other: Self) Self {
-            return Self.fromInt(u256, self.toInteger() & other.toInteger());
+        pub fn bitAnd(self: Self, rhs: Self) Self {
+            return Self.fromInt(u256, self.toInteger() & rhs.toInteger());
         }
 
         /// Batch inversion of multiple field elements.
@@ -590,14 +605,14 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
         /// Check if two field elements are equal.
         ///
         /// Determines whether the current field element is equal to another field element.
-        pub fn equal(
+        pub fn eql(
             self: Self,
-            other: Self,
+            rhs: Self,
         ) bool {
             return std.mem.eql(
                 u64,
                 &self.fe,
-                &other.fe,
+                &rhs.fe,
             );
         }
 
@@ -657,7 +672,7 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
             const ls = a.pow((Modulo - 1) / 2);
 
             const modulo_minus_one = comptime fromInt(u256, Modulo - 1);
-            if (ls.equal(modulo_minus_one)) {
+            if (ls.eql(modulo_minus_one)) {
                 return -1;
             } else if (ls.isZero()) {
                 return 0;
@@ -669,11 +684,11 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
         ///
         /// # Parameters
         /// - `self` - The first field element to compare.
-        /// - `other` - The second field element to compare.
+        /// - `rhs` - The second field element to compare.
         ///
         /// # Returns
         /// A `std.math.Order` enum indicating the ordering relationship.
-        pub fn cmp(self: Self, other: Self) std.math.Order {
+        pub fn cmp(self: Self, rhs: Self) std.math.Order {
             var a_non_mont: F.NonMontgomeryDomainFieldElement = undefined;
             var b_non_mont: F.NonMontgomeryDomainFieldElement = undefined;
             F.fromMontgomery(
@@ -682,7 +697,7 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
             );
             F.fromMontgomery(
                 &b_non_mont,
-                other.fe,
+                rhs.fe,
             );
             _ = std.mem.reverse(u64, a_non_mont[0..]);
             _ = std.mem.reverse(u64, b_non_mont[0..]);
@@ -693,62 +708,62 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
             );
         }
 
-        /// Check if this field element is less than the other.
+        /// Check if this field element is less than the rhs.
         ///
         /// # Parameters
         /// - `self` - The field element to check.
-        /// - `other` - The field element to compare against.
+        /// - `rhs` - The field element to compare against.
         ///
         /// # Returns
-        /// `true` if `self` is less than `other`, `false` otherwise.
-        pub fn lt(self: Self, other: Self) bool {
-            return switch (self.cmp(other)) {
+        /// `true` if `self` is less than `rhs`, `false` otherwise.
+        pub fn lt(self: Self, rhs: Self) bool {
+            return switch (self.cmp(rhs)) {
                 .lt => true,
                 else => false,
             };
         }
 
-        /// Check if this field element is less than or equal to the other.
+        /// Check if this field element is less than or equal to the rhs.
         ///
         /// # Parameters
         /// - `self` - The field element to check.
-        /// - `other` - The field element to compare against.
+        /// - `rhs` - The field element to compare against.
         ///
         /// # Returns
-        /// `true` if `self` is less than or equal to `other`, `false` otherwise.
-        pub fn le(self: Self, other: Self) bool {
-            return switch (self.cmp(other)) {
+        /// `true` if `self` is less than or equal to `rhs`, `false` otherwise.
+        pub fn le(self: Self, rhs: Self) bool {
+            return switch (self.cmp(rhs)) {
                 .lt => true,
                 .eq => true,
                 else => false,
             };
         }
 
-        /// Check if this field element is greater than the other.
+        /// Check if this field element is greater than the rhs.
         ///
         /// # Parameters
         /// - `self` - The field element to check.
-        /// - `other` - The field element to compare against.
+        /// - `rhs` - The field element to compare against.
         ///
         /// # Returns
-        /// `true` if `self` is greater than `other`, `false` otherwise.
-        pub fn gt(self: Self, other: Self) bool {
-            return switch (self.cmp(other)) {
+        /// `true` if `self` is greater than `rhs`, `false` otherwise.
+        pub fn gt(self: Self, rhs: Self) bool {
+            return switch (self.cmp(rhs)) {
                 .gt => true,
                 else => false,
             };
         }
 
-        /// Check if this field element is greater than or equal to the other.
+        /// Check if this field element is greater than or equal to the rhs.
         ///
         /// # Parameters
         /// - `self` - The field element to check.
-        /// - `other` - The field element to compare against.
+        /// - `rhs` - The field element to compare against.
         ///
         /// # Returns
-        /// `true` if `self` is greater than or equal to `other`, `false` otherwise.
-        pub fn ge(self: Self, other: Self) bool {
-            return switch (self.cmp(other)) {
+        /// `true` if `self` is greater than or equal to `rhs`, `false` otherwise.
+        pub fn ge(self: Self, rhs: Self) bool {
+            return switch (self.cmp(rhs)) {
                 .gt => true,
                 .eq => true,
                 else => false,
@@ -761,7 +776,7 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
         /// It returns the result of the shift and a boolean indicating whether overflow occurred.
         ///
         /// If the product $\mod{\mathtt{value} ⋅ 2^{\mathtt{rhs}}}_{2^{\mathtt{BITS}}}$ is greater than or equal to 2^BITS, it returns true.
-        /// In other words, it returns true if the bits shifted out are non-zero.
+        /// In rhs words, it returns true if the bits shifted out are non-zero.
         ///
         /// # Parameters
         ///
@@ -781,7 +796,7 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
             if (limbs >= Limbs) {
                 return .{
                     Self.zero(),
-                    !self.equal(Self.zero()),
+                    !self.eql(Self.zero()),
                 };
             }
             var res = self;
@@ -938,7 +953,7 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
             if (limbs >= Limbs) {
                 return .{
                     Self.zero(),
-                    !self.equal(Self.zero()),
+                    !self.eql(Self.zero()),
                 };
             }
 
