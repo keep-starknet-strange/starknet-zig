@@ -7,6 +7,7 @@ const CurveParams = @import("../curve_params.zig");
 const EcPointError = @import("../errors.zig").EcPointError;
 const ProjectivePoint = @import("./projective.zig").ProjectivePoint;
 const ProjectivePointJacobian = @import("./projective_jacobian.zig").ProjectivePointJacobian;
+const TEST_ITERATIONS = @import("../../../main.zig").TEST_ITERATIONS;
 const expect = std.testing.expect;
 const expectEqual = std.testing.expectEqual;
 const expectError = std.testing.expectError;
@@ -150,6 +151,36 @@ pub const AffinePoint = struct {
         return self.infinity;
     }
 
+    /// Checks whether two affine points are equal.
+    ///
+    /// This function determines whether two affine points are equal by comparing their coordinates.
+    /// Two affine points are considered equal if their x-coordinates and y-coordinates are equal.
+    ///
+    /// # Arguments
+    ///
+    /// * `self` - The first affine point.
+    /// * `rhs` - The second affine point to compare.
+    ///
+    /// # Returns
+    ///
+    /// Returns true if the two affine points are equal, false otherwise.
+    ///
+    /// # Remarks
+    ///
+    /// Two affine points (x₁, y₁) and (x₂, y₂) are considered equal if and only if:
+    ///
+    /// * x₁ = x₂
+    /// * y₁ = y₂
+    ///
+    pub fn eql(self: Self, rhs: Self) bool {
+        // Check if either point is the point at infinity.
+        if (self.isIdentity()) return rhs.isIdentity();
+        if (rhs.isIdentity()) return false;
+
+        // Check if the x-coordinates, y-coordinates are equal.
+        return self.x.eql(rhs.x) and self.y.eql(rhs.y);
+    }
+
     /// Determines whether the affine point lies on the elliptic curve.
     ///
     /// This function checks if the given affine point lies on the elliptic curve defined by the Short Weierstrass equation:
@@ -228,7 +259,7 @@ pub const AffinePoint = struct {
         // Make a copy of the original point
         var a = self;
         // Perform point addition in place
-        try Self.addAssign(&a, rhs);
+        try a.addAssign(rhs);
         // Return the resulting point
         return a;
     }
@@ -327,6 +358,27 @@ pub const AffinePoint = struct {
         self.x = result_x;
     }
 
+    /// Doubles the given affine point on the elliptic curve.
+    ///
+    /// This function calculates the doubling of the given affine point on the elliptic curve,
+    /// which involves finding the point that lies on the curve and is collinear with the tangent
+    /// line at the original point, and then reflecting it across the x-axis.
+    ///
+    /// If the original point is at infinity, its doubling remains the point at infinity.
+    ///
+    /// # Arguments
+    ///
+    /// * `self` - The affine point to be doubled.
+    ///
+    /// # Returns
+    ///
+    /// The result of doubling the given affine point on the elliptic curve.
+    pub fn double(self: Self) Self {
+        var a = self;
+        a.doubleAssign();
+        return a;
+    }
+
     /// Performs point doubling on the given affine point in the context of elliptic curve arithmetic.
     ///
     /// This function doubles the given affine point on an elliptic curve in Short Weierstrass form. It calculates the new coordinates of the point after doubling based on the curve equation and the tangent line at the given point.
@@ -383,9 +435,36 @@ pub const AffinePoint = struct {
     pub fn fromX(x: Felt252) EcPointError!Self {
         return .{
             .x = x,
-            .y = x.mul(x).mul(x).add(CurveParams.ALPHA.mul(x)).add(CurveParams.BETA).sqrt() orelse return EcPointError.SqrtNotExist,
+            .y = x.mul(x).mul(x).add(CurveParams.ALPHA.mul(x)).add(CurveParams.BETA).sqrt() orelse
+                return EcPointError.SqrtNotExist,
             .infinity = false,
         };
+    }
+
+    /// Generates a random affine point on the elliptic curve.
+    ///
+    /// This function generates a random affine point on the elliptic curve defined by the Short Weierstrass equation: 𝑦^2 = 𝑥^3 + 𝛼⋅𝑥 + 𝛽, where (𝑥, 𝑦) are the coordinates of the affine point and 𝛼, 𝛽 are curve parameters.
+    ///
+    /// # Arguments
+    ///
+    /// * `r` - An instance of the random number generator used to generate the x-coordinate of the point.
+    ///
+    /// # Returns
+    ///
+    /// A random affine point on the elliptic curve.
+    ///
+    /// # Remarks
+    ///
+    /// This function repeatedly generates random x-coordinates until it constructs a valid point on the elliptic curve.
+    /// The resulting point is returned as an affine point with the x-coordinate generated randomly and the y-coordinate computed based on the curve equation.
+    pub fn rand(r: std.Random) Self {
+        // Continuously generate random x-coordinates until a valid point on the curve is constructed.
+        while (true) {
+            // Generate a random x-coordinate within the field.
+            const random_x = Felt252.fromInt(u256, r.int(u256));
+            // Attempt to construct a point on the curve using the generated x-coordinate.
+            if (Self.fromX(random_x) catch null) |p| return p;
+        }
     }
 
     /// Converts a projective point to an affine point on the elliptic curve.
@@ -420,6 +499,22 @@ pub const AffinePoint = struct {
         };
     }
 
+    /// Converts a projective point in Jacobian coordinates to an affine point on the elliptic curve.
+    ///
+    /// This function converts a projective point representation in Jacobian coordinates to an affine point representation on the elliptic curve.
+    /// Jacobian coordinates are an optimized representation for elliptic curve operations, offering improved efficiency compared to affine coordinates.
+    ///
+    /// # Arguments
+    ///
+    /// * `p` - A pointer to the projective point in Jacobian coordinates to be converted.
+    ///
+    /// # Returns
+    ///
+    /// An affine point on the elliptic curve derived from the provided projective point in Jacobian coordinates.
+    ///
+    /// # Remarks
+    ///
+    /// The `z` coordinate of the projective point is always assumed to be non-zero in Jacobian coordinates, ensuring that it has a valid inverse in the field.
     pub fn fromProjectivePointJacobian(p: *const ProjectivePointJacobian) Self {
         // Point at infinity
         if (p.isIdentity()) return .{};
@@ -720,6 +815,23 @@ test "AffinePoint: doubleAssign should return the result of 2P" {
     );
 }
 
+test "AffinePoint: double should return the result of 2P" {
+    var a: AffinePoint = .{
+        .x = Felt252.fromInt(u256, 874739451078007766457464987),
+        .y = Felt252.fromInt(u256, 1706810360461260382053322601986439128304438960645702960907418619089749412278),
+        .infinity = false,
+    };
+
+    try expectEqual(
+        AffinePoint{
+            .x = Felt252.fromInt(u256, 2351468578589314139010270743686619948996212672240729424672235643020198087569),
+            .y = Felt252.fromInt(u256, 305861574354557676187499619608507066121174188916494330928491058389223641058),
+            .infinity = false,
+        },
+        a.double(),
+    );
+}
+
 test "AffinePoint: doubleAssign 2*0 should return 0" {
     var a: AffinePoint = .{};
 
@@ -829,10 +941,16 @@ test "AffinePoint: add P + P should give 2P" {
     );
 }
 
-test "AffinePoint: add should give the proper point addition" {
+test "AffinePoint: add should give the proper point addition (P + Q)" {
     var a: AffinePoint = .{
         .x = Felt252.fromInt(u256, 874739451078007766457464989),
         .y = Felt252.fromInt(u256, 498516619889999230417086521843493582191978251645677012430043846185431670262),
+        .infinity = false,
+    };
+
+    const b: AffinePoint = .{
+        .x = Felt252.fromInt(u256, 874739451),
+        .y = Felt252.fromInt(u256, 78981980789517450823121602653688575320503877484645249556098070515590001476),
         .infinity = false,
     };
 
@@ -842,12 +960,11 @@ test "AffinePoint: add should give the proper point addition" {
             .y = Felt252.fromInt(u256, 2212051391075121985157657306991376790084194366385999148123095336409007912683),
             .infinity = false,
         },
-        try a.add(&.{
-            .x = Felt252.fromInt(u256, 874739451),
-            .y = Felt252.fromInt(u256, 78981980789517450823121602653688575320503877484645249556098070515590001476),
-            .infinity = false,
-        }),
+        try a.add(&b),
     );
+
+    // Commutativity
+    try expectEqual(try b.add(&a), try a.add(&b));
 }
 
 test "AffinePoint: sub P - P should give 0" {
@@ -1003,4 +1120,58 @@ test "AffinePoint: fromProjectivePoint should give an AffinePoint from a Project
         },
         AffinePoint.fromProjectivePoint(&a),
     );
+}
+
+test "AffinePoint: fuzzing testing of arithmetic operations" {
+    // Initialize a pseudo-random number generator (PRNG) with a seed of 0.
+    var prng = std.Random.DefaultPrng.init(0);
+    // Generate a random number using the PRNG.
+    const random = prng.random();
+
+    // Iterate over the test iterations.
+    for (0..TEST_ITERATIONS) |_| {
+        // Generate a random affine point 'a'.
+        var a = AffinePoint.rand(random);
+
+        // Generate another random affine point 'b'.
+        var b = AffinePoint.rand(random);
+
+        // Generate another random affine point 'c'.
+        var c = AffinePoint.rand(random);
+
+        const zero = AffinePoint.identity();
+
+        // Associativity
+        try expect((try (try a.add(&b)).add(&c)).eql(try (try a.add(&b)).add(&c)));
+
+        // Identify
+        try expect(a.eql(try zero.add(&a)));
+        try expect(b.eql(try zero.add(&b)));
+        try expect(c.eql(try zero.add(&c)));
+        try expect(a.eql(try a.add(&zero)));
+        try expect(b.eql(try b.add(&zero)));
+        try expect(c.eql(try c.add(&zero)));
+
+        // Negation
+        try expect(zero.eql(try a.neg().add(&a)));
+        try expect(zero.eql(try b.neg().add(&b)));
+        try expect(zero.eql(try c.neg().add(&c)));
+        try expect(zero.eql(zero.neg()));
+
+        // Commutativity
+        try expect((try a.add(&b)).eql(try b.add(&a)));
+        try expect((try a.add(&c)).eql(try c.add(&a)));
+        try expect((try b.add(&c)).eql(try c.add(&b)));
+
+        // Associativity and commutativity simultaneously
+        try expect((try (try a.add(&b)).add(&c)).eql(try (try a.add(&c)).add(&b)));
+        try expect((try (try a.add(&c)).add(&b)).eql(try (try b.add(&c)).add(&a)));
+
+        // Doubling
+        try expect((try a.add(&a)).eql(a.double()));
+        try expect((try b.add(&b)).eql(b.double()));
+        try expect((try c.add(&c)).eql(c.double()));
+        try expect(zero.eql(zero.double()));
+        try expect(zero.eql(zero.neg().double()));
+    }
 }

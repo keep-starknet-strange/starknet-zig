@@ -29,6 +29,73 @@ pub const ProjectivePointJacobian = struct {
     /// The z-coordinate of the projective point.
     z: Felt252 = Felt252.zero(),
 
+    /// Initializes a new projective point with the given coordinates without performing curve validation.
+    ///
+    /// This function creates a new projective point with the specified x, y, and z coordinates without
+    /// performing any validation checks. It is the responsibility of the caller to ensure that the provided
+    /// coordinates represent a valid point on the elliptic curve.
+    ///
+    /// # Arguments
+    ///
+    /// * `x` - The x-coordinate of the projective point.
+    /// * `y` - The y-coordinate of the projective point.
+    /// * `z` - The z-coordinate of the projective point.
+    ///
+    /// # Returns
+    ///
+    /// A new projective point initialized with the provided coordinates.
+    ///
+    /// # Example
+    ///
+    /// ```zig
+    /// const point = ProjectivePointJacobian.initUnchecked(x_value, y_value, z_value);
+    /// ```
+    ///
+    /// This creates a new projective point with the x-coordinate `x_value`, the y-coordinate `y_value`,
+    /// and the z-coordinate `z_value` without performing any validation checks.
+    pub fn initUnchecked(x: Felt252, y: Felt252, z: Felt252) Self {
+        return .{ .x = x, .y = y, .z = z };
+    }
+
+    /// Initializes a new projective point with the given coordinates after performing curve validation.
+    ///
+    /// This function creates a new projective point with the specified x, y, and z coordinates and
+    /// performs validation to ensure that the resulting point lies on the elliptic curve defined by
+    /// the curve parameters. If the provided coordinates do not correspond to a point on the curve,
+    /// it returns an error indicating that the point is not on the curve.
+    ///
+    /// # Arguments
+    ///
+    /// * `x` - The x-coordinate of the projective point.
+    /// * `y` - The y-coordinate of the projective point.
+    /// * `z` - The z-coordinate of the projective point.
+    ///
+    /// # Returns
+    ///
+    /// If the provided coordinates result in a point on the elliptic curve, it returns the newly
+    /// initialized projective point. Otherwise, it returns an error indicating that the point is not
+    /// on the curve.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error of type `EcPointError` if the provided coordinates do not correspond to
+    /// a point on the elliptic curve.
+    ///
+    /// # Example
+    ///
+    /// ```zig
+    /// const point = try ProjectivePointJacobian.init(x_value, y_value, z_value);
+    /// ```
+    ///
+    /// This creates a new projective point with the x-coordinate `x_value`, the y-coordinate `y_value`,
+    /// and the z-coordinate `z_value`. If the resulting point is not on the curve, it returns an error.
+    pub fn init(x: Felt252, y: Felt252, z: Felt252) !Self {
+        const p: Self = .{ .x = x, .y = y, .z = z };
+        if (!AffinePoint.fromProjectivePointJacobian(&p).isOnCurve())
+            return EcPointError.PointNotOnCurve;
+        return p;
+    }
+
     /// Constructs a projective point from an affine point.
     ///
     /// This function converts an affine point to a projective point, setting its coordinates
@@ -61,6 +128,45 @@ pub const ProjectivePointJacobian = struct {
         return .{};
     }
 
+    /// Checks whether two projective points are equal.
+    ///
+    /// This function determines whether two projective points are equal by comparing their coordinates.
+    /// Two projective points are considered equal if they represent the same affine point on the elliptic curve.
+    ///
+    /// # Arguments
+    ///
+    /// * `self` - The first projective point.
+    /// * `rhs` - The second projective point to compare.
+    ///
+    /// # Returns
+    ///
+    /// Returns true if the two projective points are equal, false otherwise.
+    ///
+    /// # Remarks
+    ///
+    /// Two projective points (X₁, Y₁, Z₁) and (X₂, Y₂, Z₂) are considered equal if the following conditions hold:
+    ///
+    /// * X₁ * Z₂^2 = X₂ * Z₁^2
+    /// * Y₁ * Z₂^3 = Y₂ * Z₁^3
+    ///
+    /// These conditions ensure that the two projective points represent the same affine point on the elliptic curve.
+    /// If either point is the point at infinity, they are considered equal if and only if both points are the point at infinity.
+    pub fn eql(self: Self, rhs: Self) bool {
+        // Check if either point is the point at infinity.
+        if (self.isIdentity()) return rhs.isIdentity();
+        if (rhs.isIdentity()) return false;
+
+        // Compute Z₁^2 and Z₂^2.
+        const z1z1 = self.z.square();
+        const z2z2 = rhs.z.square();
+
+        // Check if X₁ * Z₂^2 equals X₂ * Z₁^2.
+        if (!self.x.mul(z2z2).eql(rhs.x.mul(z1z1))) return false;
+
+        // Check if Y₁ * Z₂^3 equals Y₂ * Z₁^3.
+        return self.y.mul(z2z2.mul(rhs.z)).eql(rhs.y.mul(z1z1.mul(self.z)));
+    }
+
     /// Checks if the projective point is the identity element.
     ///
     /// This function returns true if the provided projective point is the identity element of the
@@ -74,22 +180,81 @@ pub const ProjectivePointJacobian = struct {
         return self.z.isZero();
     }
 
+    /// Doubles the projective point.
+    ///
+    /// This function returns a new projective point that represents the result of
+    /// doubling the given projective point, effectively performing point doubling
+    /// in elliptic curve arithmetic.
+    ///
+    /// # Returns
+    ///
+    /// The resulting projective point after the doubling operation.
+    ///
+    /// # Remarks
+    ///
+    /// This function does not modify the original projective point, but instead
+    /// returns a new point representing the result of the doubling operation.
+    ///
+    pub fn double(self: Self) Self {
+        var a = self;
+        a.doubleAssign();
+        return a;
+    }
+
+    /// Doubles the projective point in place.
+    ///
+    /// This function doubles the given projective point in place, effectively performing
+    /// point doubling in elliptic curve arithmetic.
+    ///
+    /// # Remarks
+    ///
+    /// The point doubling operation doubles the given point in projective coordinates
+    /// and stores the result back in the original point.
+    ///
+    /// Returns without performing any operation if the projective point is the identity element
+    /// (point at infinity).
+    ///
+    /// # Cost
+    ///
+    /// The cost of this operation is calculated as follows:
+    /// - 2 multiplications (2M)
+    /// - 5 squarings (5S)
+    /// - 6 additions (6add)
+    /// - 3 multiplications by constants (3*2)
+    /// - 1 multiplication by a curve parameter (1*3)
+    /// - 1 constant-time multiplication by 8 (1*8)
     pub fn doubleAssign(self: *Self) void {
+        // If the point is the point at infinity, no operation is needed.
         if (self.isIdentity()) return;
 
-        // t=3x^2+az^2 with a=1 from stark curve
-        const t = Felt252.three().mul(self.x).mul(self.x).add(self.z.mul(self.z));
-        const u = Felt252.two().mul(self.y).mul(self.z);
-        const v = Felt252.two().mul(u).mul(self.x).mul(self.y);
-        const w = t.mul(t).sub(Felt252.two().mul(v));
+        // Calculate X1^2
+        const xx = self.x.square();
 
-        const uy = u.mul(self.y);
+        // Calculate Y1^2
+        const yy = self.y.square();
 
-        self.* = .{
-            .x = u.mul(w),
-            .y = t.mul(v.sub(w)).sub(Felt252.two().mul(uy).mul(uy)),
-            .z = u.mul(u).mul(u),
-        };
+        // Calculate YY^2
+        const yyyy = yy.square();
+
+        // Calculate Z1^2
+        const zz = self.z.square();
+
+        // Calculate 2*((X1+YY)^2-XX-YYYY)
+        const s = self.x.add(yy).square().sub(xx).sub(yyyy).double();
+
+        // Calculate 3*XX+a*ZZ^2
+        const m = xx.double().add(xx).add(CurveParams.ALPHA.mul(zz.square()));
+
+        // Calculate T = M^2-2*S
+        // X3 = T
+        self.x = m.square().sub(s.double());
+
+        // Calculate Z3 = 2*Y1*Z1
+        // This is a faster way to compute (Y1+Z1)^2-YY-ZZ
+        self.z = self.z.mul(self.y).double();
+
+        // Calculate Y3 = M*(S-X3)-8*YYYY
+        self.y = s.sub(self.x).mul(m).sub(yyyy.double().double().double());
     }
 
     /// Adds another projective point to this point and returns the result.
@@ -123,11 +288,10 @@ pub const ProjectivePointJacobian = struct {
     ///
     /// The negated projective point.
     pub fn neg(self: Self) Self {
-        return .{
-            .x = self.x,
-            .y = self.y.neg(),
-            .z = self.z,
-        };
+        return if (self.isIdentity())
+            .{}
+        else
+            .{ .x = self.x, .y = self.y.neg(), .z = self.z };
     }
 
     /// Subtracts another projective point from this point and returns the result.
@@ -245,6 +409,58 @@ pub const ProjectivePointJacobian = struct {
     }
 };
 
+test "ProjectivePointJacobian: initUnchecked should return a projective point (even if not valid)" {
+    try expectEqual(
+        ProjectivePointJacobian{
+            .x = Felt252.fromInt(u256, 10),
+            .y = Felt252.fromInt(u256, 20),
+            .z = Felt252.one(),
+        },
+        ProjectivePointJacobian.initUnchecked(
+            Felt252.fromInt(u256, 10),
+            Felt252.fromInt(u256, 20),
+            Felt252.one(),
+        ),
+    );
+
+    try expectEqual(
+        ProjectivePointJacobian{
+            .x = Felt252.fromInt(u256, 874739451078007766457464989),
+            .y = Felt252.fromInt(u256, 498516619889999230417086521843493582191978251645677012430043846185431670262),
+            .z = Felt252.one(),
+        },
+        ProjectivePointJacobian.initUnchecked(
+            Felt252.fromInt(u256, 874739451078007766457464989),
+            Felt252.fromInt(u256, 498516619889999230417086521843493582191978251645677012430043846185431670262),
+            Felt252.one(),
+        ),
+    );
+}
+
+test "ProjectivePointJacobian: init should return a projective point and throw an error when not valid" {
+    try expectError(
+        EcPointError.PointNotOnCurve,
+        ProjectivePointJacobian.init(
+            Felt252.fromInt(u256, 10),
+            Felt252.fromInt(u256, 20),
+            Felt252.one(),
+        ),
+    );
+
+    try expectEqual(
+        ProjectivePointJacobian{
+            .x = Felt252.fromInt(u256, 874739451078007766457464989),
+            .y = Felt252.fromInt(u256, 498516619889999230417086521843493582191978251645677012430043846185431670262),
+            .z = Felt252.one(),
+        },
+        try ProjectivePointJacobian.init(
+            Felt252.fromInt(u256, 874739451078007766457464989),
+            Felt252.fromInt(u256, 498516619889999230417086521843493582191978251645677012430043846185431670262),
+            Felt252.one(),
+        ),
+    );
+}
+
 test "ProjectivePointJacobian: fromAffinePoint should return a projective point based on an affine point" {
     try expectEqual(
         ProjectivePointJacobian{},
@@ -330,28 +546,28 @@ test "ProjectivePointJacobian: addAssign P + (-P) should give 0" {
     try expectEqual(ProjectivePointJacobian{}, p);
 }
 
-// test "ProjectivePointJacobian: addAssign P + P should give 2P" {
-//     var p = ProjectivePointJacobian.fromAffinePoint(&.{
-//         .x = Felt252.fromInt(u256, 874739451078007766457464989),
-//         .y = Felt252.fromInt(u256, 498516619889999230417086521843493582191978251645677012430043846185431670262),
-//         .infinity = false,
-//     });
+test "ProjectivePointJacobian: addAssign P + P should give 2P" {
+    var p = ProjectivePointJacobian.fromAffinePoint(&.{
+        .x = Felt252.fromInt(u256, 874739451078007766457464989),
+        .y = Felt252.fromInt(u256, 498516619889999230417086521843493582191978251645677012430043846185431670262),
+        .infinity = false,
+    });
 
-//     p.addAssign(&ProjectivePointJacobian.fromAffinePoint(&.{
-//         .x = Felt252.fromInt(u256, 874739451078007766457464989),
-//         .y = Felt252.fromInt(u256, 498516619889999230417086521843493582191978251645677012430043846185431670262),
-//         .infinity = false,
-//     }));
+    p.addAssign(&ProjectivePointJacobian.fromAffinePoint(&.{
+        .x = Felt252.fromInt(u256, 874739451078007766457464989),
+        .y = Felt252.fromInt(u256, 498516619889999230417086521843493582191978251645677012430043846185431670262),
+        .infinity = false,
+    }));
 
-//     try expectEqual(
-//         AffinePoint{
-//             .x = Felt252.fromInt(u256, 1007300233009797052089600572030536234678420387464749955693412487829103372971),
-//             .y = Felt252.fromInt(u256, 1628094014246951319213922206675864072767692386561452886899658728389307097247),
-//             .infinity = false,
-//         },
-//         AffinePoint.fromProjectivePointJacobian(&p),
-//     );
-// }
+    try expectEqual(
+        AffinePoint{
+            .x = Felt252.fromInt(u256, 1007300233009797052089600572030536234678420387464749955693412487829103372971),
+            .y = Felt252.fromInt(u256, 1628094014246951319213922206675864072767692386561452886899658728389307097247),
+            .infinity = false,
+        },
+        AffinePoint.fromProjectivePointJacobian(&p),
+    );
+}
 
 test "ProjectivePointJacobian: addAssign should give the proper point addition" {
     var p = ProjectivePointJacobian.fromAffinePoint(&.{
@@ -385,59 +601,66 @@ test "ProjectivePointJacobian: fuzzing testing of arithmetic operations" {
     // Iterate over the test iterations.
     for (0..TEST_ITERATIONS) |_| {
         // Generate a random affine point 'a'.
-        var a: AffinePoint = .{
-            .x = Felt252.fromInt(u256, random.int(u256)),
-            .y = Felt252.fromInt(u256, random.int(u256)),
-            .infinity = false,
-        };
+        var a = AffinePoint.rand(random);
 
-        // Generate another random affine point 'b'.
-        const b: AffinePoint = .{
-            .x = Felt252.fromInt(u256, random.int(u256)),
-            .y = Felt252.fromInt(u256, random.int(u256)),
-            .infinity = false,
-        };
+        // Generate a random affine point 'b'.
+        var b = AffinePoint.rand(random);
 
-        // Convert affine points 'a' and 'b' to Jacobian projective points.
-        const a_projective = ProjectivePointJacobian.fromAffinePoint(&a);
-        const b_projective = ProjectivePointJacobian.fromAffinePoint(&b);
+        // Generate a random affine point 'c'.
+        var c = AffinePoint.rand(random);
 
-        // Make a copy of point 'a' to perform in-place addition later.
-        var p = ProjectivePointJacobian.fromAffinePoint(&a);
+        // Convert affine points to Jacobian projective points.
+        var a_projective = ProjectivePointJacobian.fromAffinePoint(&a);
+        var b_projective = ProjectivePointJacobian.fromAffinePoint(&b);
+        var c_projective = ProjectivePointJacobian.fromAffinePoint(&c);
+        var zero: ProjectivePointJacobian = .{};
 
-        // Verify the correctness of subtraction operation between affine points 'a' and 'b'.
+        // Associativity
+        try expect(a_projective.add(&b_projective).add(&c_projective).eql(
+            a_projective.add(&b_projective).add(&c_projective),
+        ));
+
+        // Identify
+        try expect(a_projective.eql(zero.add(&a_projective)));
+        try expect(b_projective.eql(zero.add(&b_projective)));
+        try expect(c_projective.eql(zero.add(&c_projective)));
+        try expect(a_projective.eql(a_projective.add(&zero)));
+        try expect(b_projective.eql(b_projective.add(&zero)));
+        try expect(c_projective.eql(c_projective.add(&zero)));
+
+        // Negation
+        try expect(zero.eql(a_projective.neg().add(&a_projective)));
+        try expect(zero.eql(b_projective.neg().add(&b_projective)));
+        try expect(zero.eql(c_projective.neg().add(&c_projective)));
+        try expect(zero.eql(zero.neg()));
+
+        // Commutativity
+        try expect(a_projective.add(&b_projective).eql(b_projective.add(&a_projective)));
+
+        //  Associativity and commutativity simultaneously
+        const a_p_b = ProjectivePointJacobian.fromAffinePoint(
+            &AffinePoint.fromProjectivePointJacobian(&a_projective.add(&b_projective)),
+        );
+        const a_p_c = ProjectivePointJacobian.fromAffinePoint(
+            &AffinePoint.fromProjectivePointJacobian(&a_projective.add(&c_projective)),
+        );
+        const b_p_c = ProjectivePointJacobian.fromAffinePoint(
+            &AffinePoint.fromProjectivePointJacobian(&b_projective.add(&c_projective)),
+        );
         try expectEqual(
-            a.sub(&b),
-            AffinePoint.fromProjectivePointJacobian(&a_projective.sub(&b_projective)),
+            AffinePoint.fromProjectivePointJacobian(&a_p_b.add(&c_projective)),
+            AffinePoint.fromProjectivePointJacobian(&a_p_c.add(&b_projective)),
+        );
+        try expectEqual(
+            AffinePoint.fromProjectivePointJacobian(&a_p_c.add(&b_projective)),
+            AffinePoint.fromProjectivePointJacobian(&b_p_c.add(&a_projective)),
         );
 
-        // Verify the correctness of subtraction operation between 'a_projective' and identity point.
-        try expectEqual(
-            a_projective,
-            a_projective.sub(&ProjectivePointJacobian.identity()),
-        );
-
-        // Verify the correctness of negation operation on 'a_projective'.
-        try expectEqual(
-            a_projective.neg(),
-            ProjectivePointJacobian.identity().sub(&a_projective),
-        );
-
-        // Perform in-place addition of 'b' to 'a'.
-        try a.addAssign(&b);
-
-        // Verify the correctness of addition operation between affine points 'a' and 'b'.
-        try expectEqual(
-            a,
-            AffinePoint.fromProjectivePointJacobian(
-                &p.add(&b_projective),
-            ),
-        );
-
-        // Perform in-place addition of 'b_projective' to 'p'.
-        p.addAssign(&b_projective);
-
-        // Verify the correctness of 'p' after in-place addition.
-        try expectEqual(a, AffinePoint.fromProjectivePointJacobian(&p));
+        // Doubling
+        try expect(a_projective.add(&a_projective).eql(a_projective.double()));
+        try expect(b_projective.add(&b_projective).eql(b_projective.double()));
+        try expect(c_projective.add(&c_projective).eql(c_projective.double()));
+        try expect(zero.eql(zero.double()));
+        try expect(zero.eql(zero.neg().double()));
     }
 }
