@@ -4,6 +4,7 @@ const std = @import("std");
 const fields = @import("fields.zig");
 const STARKNET_PRIME = @import("./constants.zig").STARKNET_PRIME;
 const FELT_BYTE_SIZE = @import("./constants.zig").FELT_BYTE_SIZE;
+const TEST_ITERATIONS = @import("../../main.zig").TEST_ITERATIONS;
 const expect = std.testing.expect;
 const expectEqual = std.testing.expectEqual;
 
@@ -991,4 +992,51 @@ test "Felt252 wrapping_shr" {
         } },
         e.wrapping_shr(1),
     );
+}
+
+test "Felt252: arithmetic operations" {
+
+    // Initialize a pseudo-random number generator (PRNG) with a seed of 0.
+    var prng = std.Random.DefaultPrng.init(0);
+    // Generate a random number using the PRNG.
+    const random = prng.random();
+
+    // Iterate over the test iterations.
+    for (0..TEST_ITERATIONS) |_| {
+        const a = Felt252.rand(random);
+        const b = Felt252.rand(random);
+        const c = Felt252.rand(random);
+        const zero = Felt252.zero();
+
+        // Associativity
+        try expect(a.add(b).add(c).eql(a.add(c.add(b))));
+
+        // Identify
+        try expect(a.eql(zero.add(a)));
+        try expect(b.eql(zero.add(b)));
+        try expect(c.eql(zero.add(c)));
+        try expect(a.eql(a.add(zero)));
+        try expect(b.eql(b.add(zero)));
+        try expect(c.eql(c.add(zero)));
+
+        // Negation
+        try expect(zero.eql(a.neg().add(a)));
+        try expect(zero.eql(b.neg().add(b)));
+        try expect(zero.eql(c.neg().add(c)));
+        try expect(zero.eql(zero.neg().add(zero)));
+
+        // Commutativity
+        try expect(a.add(b).eql(b.add(a)));
+
+        // Associativity and commutativity simultaneously
+        try expect(a.add(b).add(c).eql(a.add(c).add(b)));
+        try expect(a.add(c).add(b).eql(b.add(c).add(a)));
+
+        // Doubling
+        try expect(a.add(a).eql(a.double()));
+        try expect(b.add(b).eql(b.double()));
+        try expect(c.add(c).eql(c.double()));
+        try expect(zero.eql(zero.double()));
+        try expect(zero.eql(zero.neg().double()));
+    }
 }

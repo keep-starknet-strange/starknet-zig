@@ -405,7 +405,7 @@ pub const ProjectivePointJacobian = struct {
 
         // Z3 = ((Z1+Z2)^2 - Z1Z1 - Z2Z2)*H
         // This is equal to Z3 = 2 * Z1 * Z2 * H, and computing it this way is faster.
-        self.z = rhs.z.double().mul(h);
+        self.z = self.z.mul(rhs.z).double().mul(h);
     }
 };
 
@@ -617,7 +617,7 @@ test "ProjectivePointJacobian: fuzzing testing of arithmetic operations" {
 
         // Associativity
         try expect(a_projective.add(&b_projective).add(&c_projective).eql(
-            a_projective.add(&b_projective).add(&c_projective),
+            a_projective.add(&b_projective.add(&c_projective)),
         ));
 
         // Identify
@@ -638,23 +638,12 @@ test "ProjectivePointJacobian: fuzzing testing of arithmetic operations" {
         try expect(a_projective.add(&b_projective).eql(b_projective.add(&a_projective)));
 
         //  Associativity and commutativity simultaneously
-        const a_p_b = ProjectivePointJacobian.fromAffinePoint(
-            &AffinePoint.fromProjectivePointJacobian(&a_projective.add(&b_projective)),
-        );
-        const a_p_c = ProjectivePointJacobian.fromAffinePoint(
-            &AffinePoint.fromProjectivePointJacobian(&a_projective.add(&c_projective)),
-        );
-        const b_p_c = ProjectivePointJacobian.fromAffinePoint(
-            &AffinePoint.fromProjectivePointJacobian(&b_projective.add(&c_projective)),
-        );
-        try expectEqual(
-            AffinePoint.fromProjectivePointJacobian(&a_p_b.add(&c_projective)),
-            AffinePoint.fromProjectivePointJacobian(&a_p_c.add(&b_projective)),
-        );
-        try expectEqual(
-            AffinePoint.fromProjectivePointJacobian(&a_p_c.add(&b_projective)),
-            AffinePoint.fromProjectivePointJacobian(&b_p_c.add(&a_projective)),
-        );
+        try expect(a_projective.add(&b_projective).add(&c_projective).eql(
+            a_projective.add(&c_projective).add(&b_projective),
+        ));
+        try expect(a_projective.add(&c_projective).add(&b_projective).eql(
+            b_projective.add(&c_projective).add(&a_projective),
+        ));
 
         // Doubling
         try expect(a_projective.add(&a_projective).eql(a_projective.double()));

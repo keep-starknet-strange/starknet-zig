@@ -558,6 +558,10 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
             }
         }
 
+        pub fn rand(r: std.Random) Self {
+            return Self.fromInt(u256, r.int(u256));
+        }
+
         /// Calculate the multiplicative inverse of a field element.
         ///
         /// Computes the multiplicative inverse of the current field element.
