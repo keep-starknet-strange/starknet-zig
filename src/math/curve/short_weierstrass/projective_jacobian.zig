@@ -1,5 +1,3 @@
-// code ported from starknet-curve:
-// https://github.com/xJonathanLEI/starknet-rs/blob/0857bd6cd3bd34cbb06708f0a185757044171d8d/starknet-curve/src/ec_point.rs
 const std = @import("std");
 
 const Felt252 = @import("../../fields/starknet.zig").Felt252;
@@ -279,6 +277,46 @@ pub const ProjectivePointJacobian = struct {
         return a;
     }
 
+    /// Adds the coordinates of an affine point to this projective point.
+    ///
+    /// This function adds the coordinates of the provided affine point (`rhs`) to the coordinates
+    /// of this projective point (`self`) and returns a new projective point representing the result
+    /// of the addition operation. It does not modify the original point (`self`).
+    ///
+    /// # Arguments
+    ///
+    /// * `self` - The current projective point.
+    /// * `rhs` - A pointer to the affine point to be added to `self`.
+    ///
+    /// # Returns
+    ///
+    /// A new projective point representing the result of the addition operation.
+    ///
+    /// # Remarks
+    ///
+    /// This function creates a copy of the original projective point (`self`), then performs the
+    /// point addition operation in place by calling `addAffineAssign`. It returns a new projective
+    /// point representing the result of the addition operation, leaving the original point unchanged.
+    ///
+    /// # Example
+    ///
+    /// ```zig
+    /// const point = ProjectivePointJacobian.initUnchecked(x1, y1, z1);
+    /// const affinePoint = AffinePoint.initUnchecked(x2, y2);
+    /// const result = point.addAffine(&affinePoint);
+    /// ```
+    ///
+    /// This example adds the coordinates of `affinePoint` to the projective point `point`
+    /// and stores the result in the `result` variable without modifying `point`.
+    pub fn addAffine(self: Self, rhs: *const AffinePoint) Self {
+        // Make a copy of the original point
+        var a = self;
+        // Perform point addition in place
+        Self.addAffineAssign(&a, rhs);
+        // Return the resulting point
+        return a;
+    }
+
     /// Negates this projective point.
     ///
     /// This function negates the coordinates of this projective point (`self`) and returns the result.
@@ -314,6 +352,127 @@ pub const ProjectivePointJacobian = struct {
         a.addAssign(&rhs.neg());
         // Return the resulting point
         return a;
+    }
+
+    /// Subtracts the coordinates of an affine point from this projective point.
+    ///
+    /// This function subtracts the coordinates of the provided affine point (`rhs`) from the coordinates
+    /// of this projective point (`self`) and returns a new projective point representing the result
+    /// of the subtraction operation. It does not modify the original point (`self`).
+    ///
+    /// # Arguments
+    ///
+    /// * `self` - The current projective point.
+    /// * `rhs` - A pointer to the affine point to be subtracted from `self`.
+    ///
+    /// # Returns
+    ///
+    /// A new projective point representing the result of the subtraction operation.
+    ///
+    /// # Remarks
+    ///
+    /// This function creates a copy of the original projective point (`self`), then subtracts the
+    /// coordinates of the negated `rhs` point from `self` by calling `addAffineAssign`. It returns
+    /// a new projective point representing the result of the subtraction operation, leaving the
+    /// original point unchanged.
+    ///
+    /// # Example
+    ///
+    /// ```zig
+    /// const point = ProjectivePointJacobian.initUnchecked(x1, y1, z1);
+    /// const affinePoint = AffinePoint.initUnchecked(x2, y2);
+    /// const result = point.subAffine(&affinePoint);
+    /// ```
+    ///
+    /// This example subtracts the coordinates of `affinePoint` from the projective point `point`
+    /// and stores the result in the `result` variable without modifying `point`.
+    pub fn subAffine(self: Self, rhs: *const AffinePoint) Self {
+        // Make a copy of the original point
+        var a = self;
+        // Add the negation of the rhs point to this point
+        a.addAffineAssign(&rhs.neg());
+        // Return the resulting point
+        return a;
+    }
+
+    /// Adds the coordinates of an affine point to this projective point in place.
+    ///
+    /// This function adds the coordinates of the provided affine point (`rhs`) to the coordinates
+    /// of this projective point (`self`), without modifying the original point. It returns void
+    /// and updates the current point (`self`) to the result of the addition operation.
+    ///
+    /// # Arguments
+    ///
+    /// * `self` - A mutable reference to the current projective point.
+    /// * `rhs` - A pointer to the affine point to be added to `self`.
+    ///
+    /// # Cost Analysis
+    ///
+    /// The function performs the point addition operation with the following costs:
+    /// - 7M (multiplications)
+    /// - 4S (squares)
+    /// - 9add (additions)
+    /// - 3*2 (doublings)
+    /// - 1*4 (constants)
+    pub fn addAffineAssign(self: *Self, rhs: *const AffinePoint) void {
+        // If rhs is the identity point, no operation is needed.
+        if (rhs.isIdentity()) return;
+
+        // If self is the identity point, update self to rhs and return.
+        if (self.isIdentity()) {
+            self.* = Self.fromAffinePoint(rhs);
+            return;
+        }
+
+        // https://www.hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-0.html#addition-madd-2007-bl
+
+        // Z1Z1 = Z1^2
+        const z1z1 = self.z.square();
+
+        // U2 = X2*Z1Z1
+        const u_2 = rhs.x.mul(z1z1);
+
+        // S2 = Y2*Z1*Z1Z1
+        const s2 = self.z.mul(rhs.y).mul(z1z1);
+
+        if (self.x.eql(u_2)) {
+            if (self.y.eql(s2)) {
+                // Point doubling operation
+                self.doubleAssign();
+            } else {
+                // Point at infinity
+                self.* = Self.identity();
+            }
+            return;
+        }
+
+        // H = U2-X1
+        const h = u_2.sub(self.x);
+
+        // HH = H^2
+        const hh = h.square();
+
+        // I = 4*HH
+        const i = hh.double().double();
+
+        // J = -H*I
+        const j = h.neg().mul(i);
+
+        // r = 2*(S2-Y1)
+        const r = s2.sub(self.y).double();
+
+        // V = X1*I
+        const v = self.x.mul(i);
+
+        // X3 = r^2 + J - 2*V
+        self.x = r.square().add(j).sub(v.double());
+
+        // Y3 = r*(V-X3) + 2*Y1*J
+        self.y = r.mul(v.sub(self.x)).add(self.y.double().mul(j));
+
+        // Z3 = 2 * Z1 * H;
+        // Can alternatively be computed as (Z1+H)^2-Z1Z1-HH, but the latter is slower.
+        self.z = self.z.mul(h).double();
     }
 
     /// Performs point addition in Jacobian projective coordinates.
@@ -651,5 +810,28 @@ test "ProjectivePointJacobian: fuzzing testing of arithmetic operations" {
         try expect(c_projective.add(&c_projective).eql(c_projective.double()));
         try expect(zero.eql(zero.double()));
         try expect(zero.eql(zero.neg().double()));
+
+        // Operation with an affine point
+        try expect(a_projective.addAffine(&b).eql(
+            a_projective.add(&b_projective),
+        ));
+        try expect(b_projective.addAffine(&c).eql(
+            b_projective.add(&c_projective),
+        ));
+        try expect(a_projective.subAffine(&b).eql(
+            a_projective.sub(&b_projective),
+        ));
+        try expect(b_projective.subAffine(&c).eql(
+            b_projective.sub(&c_projective),
+        ));
+        try expect(zero.addAffine(&a).eql(
+            a_projective,
+        ));
+        try expect(a_projective.addAffine(&b).addAffine(&c).eql(
+            a_projective.add(&c_projective).add(&b_projective),
+        ));
+        try expect(a_projective.addAffine(&c).addAffine(&b).eql(
+            b_projective.add(&c_projective).add(&a_projective),
+        ));
     }
 }
