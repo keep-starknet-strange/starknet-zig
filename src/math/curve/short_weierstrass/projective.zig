@@ -291,6 +291,38 @@ pub const ProjectivePoint = struct {
         return a;
     }
 
+    /// Adds another affine point to this point in projective space.
+    ///
+    /// This function adds the coordinates of the provided affine point (`rhs`) to the coordinates
+    /// of this projective point (`self`), without modifying the original point. It returns a new
+    /// projective point representing the result of the addition operation.
+    ///
+    /// # Arguments
+    ///
+    /// * `rhs` - A pointer to the affine point to be added to this point.
+    ///
+    /// # Returns
+    ///
+    /// A new projective point representing the result of the addition operation.
+    ///
+    /// # Safety
+    ///
+    /// This function assumes that `self` is a valid projective point and `rhs` is a valid affine point.
+    /// Passing invalid points may result in undefined behavior.
+    ///
+    /// # Note
+    ///
+    /// The addition operation is performed according to the formulas derived for standard projective
+    /// coordinates. For more information, see the source reference.
+    pub fn addAffine(self: Self, rhs: *const AffinePoint) Self {
+        // Make a copy of the original point
+        var a = self;
+        // Perform point addition in place
+        a.addAffineAssign(rhs);
+        // Return the resulting point
+        return a;
+    }
+
     /// Returns the negation of this projective point.
     ///
     /// This function returns the negation of the current projective point, where the negation is
@@ -329,6 +361,33 @@ pub const ProjectivePoint = struct {
         var a = self;
         // Add the negation of the rhs point to this point
         a.addAssign(&rhs.neg());
+        // Return the resulting point
+        return a;
+    }
+
+    /// Subtracts another affine point from this point in projective space.
+    ///
+    /// This function subtracts the coordinates of the provided affine point (`rhs`) from the coordinates
+    /// of this projective point (`self`), updating the coordinates of `self` with the result.
+    ///
+    /// # Arguments
+    ///
+    /// * `rhs` - A pointer to the affine point to be subtracted from this point.
+    ///
+    /// # Safety
+    ///
+    /// This function assumes that `self` is a valid projective point and `rhs` is a valid affine point.
+    /// Passing invalid points may result in undefined behavior.
+    ///
+    /// # Note
+    ///
+    /// The subtraction operation is performed according to the formulas derived for standard projective
+    /// coordinates. For more information, see the source reference.
+    pub fn subAffine(self: Self, rhs: *const AffinePoint) Self {
+        // Make a copy of the original point
+        var a = self;
+        // Add the negation of the rhs point to this point
+        a.addAffineAssign(&rhs.neg());
         // Return the resulting point
         return a;
     }
@@ -407,10 +466,30 @@ pub const ProjectivePoint = struct {
         };
     }
 
-    pub fn addAffinePointAssign(self: *Self, rhs: *const AffinePoint) void {
-        if (rhs.infinity) return;
+    /// Adds another affine point to this point in projective space.
+    ///
+    /// This function adds the coordinates of the provided affine point (`rhs`) to the coordinates
+    /// of this projective point (`self`), updating the coordinates of `self` with the result.
+    ///
+    /// # Arguments
+    ///
+    /// * `rhs` - A pointer to the affine point to be added to this point.
+    ///
+    /// # Safety
+    ///
+    /// This function assumes that `self` is a valid projective point and `rhs` is a valid affine point.
+    /// Passing invalid points may result in undefined behavior.
+    ///
+    /// # Note
+    ///
+    /// The addition operation is performed according to the formulas derived for standard projective
+    /// coordinates.
+    pub fn addAffineAssign(self: *Self, rhs: *const AffinePoint) void {
+        // If rhs is the identity point, no operation is needed.
+        if (rhs.isIdentity()) return;
 
-        if (self.infinity) {
+        // If self is the identity point, update self to rhs and return.
+        if (self.isIdentity()) {
             self.* = Self.fromAffinePoint(rhs);
             return;
         }
@@ -422,9 +501,11 @@ pub const ProjectivePoint = struct {
 
         if (u_0.eql(u_1)) {
             if (t0.eql(t1)) {
+                // Point doubling operation
                 self.doubleAssign();
             } else {
-                self.infinity = true;
+                // Point at infinity
+                self.* = Self.identity();
             }
             return;
         }
@@ -691,5 +772,28 @@ test "ProjectivePoint: fuzzing testing of arithmetic operations" {
         try expect(c_projective.add(&c_projective).eql(c_projective.double()));
         try expect(zero.eql(zero.double()));
         try expect(zero.eql(zero.neg().double()));
+
+        // Operation with an affine point
+        try expect(a_projective.addAffine(&b).eql(
+            a_projective.add(&b_projective),
+        ));
+        try expect(b_projective.addAffine(&c).eql(
+            b_projective.add(&c_projective),
+        ));
+        try expect(a_projective.subAffine(&b).eql(
+            a_projective.sub(&b_projective),
+        ));
+        try expect(b_projective.subAffine(&c).eql(
+            b_projective.sub(&c_projective),
+        ));
+        try expect(zero.addAffine(&a).eql(
+            a_projective,
+        ));
+        try expect(a_projective.addAffine(&b).addAffine(&c).eql(
+            a_projective.add(&c_projective).add(&b_projective),
+        ));
+        try expect(a_projective.addAffine(&c).addAffine(&b).eql(
+            b_projective.add(&c_projective).add(&a_projective),
+        ));
     }
 }
