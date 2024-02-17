@@ -162,8 +162,13 @@ pub const ProjectivePoint = struct {
         if (self.isIdentity()) return rhs.isIdentity();
         if (rhs.isIdentity()) return false;
 
+        // Calculate the inverse of the z-coordinates.
+        const self_zinv = self.z.inv().?;
+        const rhs_zinv = rhs.z.inv().?;
+
         // Check if the x-coordinates, y-coordinates are equal.
-        return self.x.eql(rhs.x) and self.y.eql(rhs.y);
+        return self.x.mul(self_zinv).eql(rhs.x.mul(rhs_zinv)) and
+            self.y.mul(self_zinv).eql(rhs.y.mul(rhs_zinv));
     }
 
     /// Checks if the projective point is the identity element.
@@ -649,7 +654,7 @@ test "ProjectivePoint: fuzzing testing of arithmetic operations" {
         // Associativity
         try expect(
             a_projective.add(&b_projective).add(&c_projective).eql(
-                a_projective.add(&b_projective).add(&c_projective),
+                a_projective.add(&b_projective.add(&c_projective)),
             ),
         );
 
@@ -673,11 +678,11 @@ test "ProjectivePoint: fuzzing testing of arithmetic operations" {
         ));
 
         // Associativity and commutativity simultaneously
-        try expect(AffinePoint.fromProjectivePoint(&a_projective.add(&b_projective).add(&c_projective)).eql(
-            AffinePoint.fromProjectivePoint(&a_projective.add(&c_projective).add(&b_projective)),
+        try expect(a_projective.add(&b_projective).add(&c_projective).eql(
+            a_projective.add(&c_projective).add(&b_projective),
         ));
-        try expect(AffinePoint.fromProjectivePoint(&a_projective.add(&c_projective).add(&b_projective)).eql(
-            AffinePoint.fromProjectivePoint(&b_projective.add(&c_projective).add(&a_projective)),
+        try expect(a_projective.add(&c_projective).add(&b_projective).eql(
+            b_projective.add(&c_projective).add(&a_projective),
         ));
 
         // Doubling
