@@ -159,10 +159,9 @@ pub const ProjectivePointJacobian = struct {
         const z2z2 = rhs.z.square();
 
         // Check if X₁ * Z₂^2 equals X₂ * Z₁^2.
-        if (!self.x.mul(z2z2).eql(rhs.x.mul(z1z1))) return false;
-
         // Check if Y₁ * Z₂^3 equals Y₂ * Z₁^3.
-        return self.y.mul(z2z2.mul(rhs.z)).eql(rhs.y.mul(z1z1.mul(self.z)));
+        return self.x.mul(z2z2).eql(rhs.x.mul(z1z1)) and
+            self.y.mul(z2z2.mul(rhs.z)).eql(rhs.y.mul(z1z1.mul(self.z)));
     }
 
     /// Checks if the projective point is the identity element.
