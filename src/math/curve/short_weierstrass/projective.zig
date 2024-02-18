@@ -167,6 +167,22 @@ pub const ProjectivePoint = struct {
             self.y.mul(rhs.z).eql(rhs.y.mul(self.z));
     }
 
+    /// Checks if this projective point lies on the elliptic curve.
+    ///
+    /// This function determines whether the given projective point lies on the elliptic curve defined
+    /// by the curve parameters. If the point is at infinity, it is considered to be on the curve.
+    ///
+    /// # Returns
+    ///
+    /// `true` if the projective point lies on the elliptic curve, otherwise `false`.
+    pub fn isOnCurve(self: *const Self) bool {
+        // Check if the point is at infinity.
+        if (self.isIdentity()) return true;
+
+        // Convert the projective point to an affine point and check if it lies on the curve.
+        return AffinePoint.fromProjectivePoint(self).isOnCurve();
+    }
+
     /// Checks if the projective point is the identity element.
     ///
     /// This function returns true if the provided projective point is the identity element of the
@@ -703,6 +719,42 @@ test "ProjectivePoint: addAssign should give the proper point addition" {
         },
         AffinePoint.fromProjectivePoint(&p),
     );
+}
+
+test "ProjectivePoint: isOnCurve should return true if the point is on the curve" {
+    const a: AffinePoint = .{
+        .x = Felt252.fromInt(u256, 874739451078007766457464989),
+        .y = Felt252.fromInt(u256, 498516619889999230417086521843493582191978251645677012430043846185431670262),
+        .infinity = false,
+    };
+
+    try expect(ProjectivePoint.fromAffinePoint(&a).isOnCurve());
+
+    const b: AffinePoint = .{
+        .x = Felt252.fromInt(u256, 874739451078007766457464),
+        .y = Felt252.fromInt(u256, 3202429691477156140440114086107030603959626074522568741397770080517060801394),
+        .infinity = false,
+    };
+
+    try expect(ProjectivePoint.fromAffinePoint(&b).isOnCurve());
+}
+
+test "ProjectivePoint: isOnCurve should return false if the point is not on the curve" {
+    const a: AffinePoint = .{
+        .x = Felt252.fromInt(u256, 10),
+        .y = Felt252.fromInt(u256, 100),
+        .infinity = false,
+    };
+
+    try expect(!ProjectivePoint.fromAffinePoint(&a).isOnCurve());
+
+    const b: AffinePoint = .{
+        .x = Felt252.fromInt(u256, 5),
+        .y = Felt252.fromInt(u256, 30),
+        .infinity = false,
+    };
+
+    try expect(!ProjectivePoint.fromAffinePoint(&b).isOnCurve());
 }
 
 test "ProjectivePoint: fuzzing testing of arithmetic operations" {
