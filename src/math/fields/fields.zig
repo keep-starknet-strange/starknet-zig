@@ -173,10 +173,7 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
                 );
             }
             var ret: Self = undefined;
-            F.toMontgomery(
-                &ret.fe,
-                non_mont,
-            );
+            F.toMontgomery(&ret.fe, non_mont);
 
             return ret;
         }
@@ -194,10 +191,7 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
                 );
             }
             var ret: Self = undefined;
-            F.toMontgomery(
-                &ret.fe,
-                non_mont,
-            );
+            F.toMontgomery(&ret.fe, non_mont);
 
             return ret;
         }
@@ -211,7 +205,9 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
 
             inline for (0..4) |ind_element| {
                 inline for (0..64) |ind_bit| {
-                    bits[ind_element * 64 + ind_bit] = @intCast((nmself[ind_element] >> ind_bit) & 1);
+                    bits[ind_element * 64 + ind_bit] = @intCast(
+                        (nmself[ind_element] >> ind_bit) & 1,
+                    );
                 }
             }
 
@@ -229,10 +225,7 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
         /// This function converts the field element to a byte array for serialization.
         pub fn toBytes(self: Self) [BytesSize]u8 {
             var non_mont: F.NonMontgomeryDomainFieldElement = undefined;
-            F.fromMontgomery(
-                &non_mont,
-                self.fe,
-            );
+            F.fromMontgomery(&non_mont, self.fe);
             var ret: [BytesSize]u8 = undefined;
             inline for (0..4) |i| {
                 std.mem.writeInt(
@@ -251,10 +244,7 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
         /// This function converts the field element to a big-endian byte array for serialization.
         pub fn toBytesBe(self: Self) [BytesSize]u8 {
             var non_mont: F.NonMontgomeryDomainFieldElement = undefined;
-            F.fromMontgomery(
-                &non_mont,
-                self.fe,
-            );
+            F.fromMontgomery(&non_mont, self.fe);
             var ret: [BytesSize]u8 = undefined;
             inline for (0..4) |i| {
                 std.mem.writeInt(
@@ -295,80 +285,52 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
         /// Converts a field element from Montgomery form to non-Montgomery representation.
         pub fn fromMontgomery(self: Self) F.NonMontgomeryDomainFieldElement {
             var nonMont: F.NonMontgomeryDomainFieldElement = undefined;
-            F.fromMontgomery(
-                &nonMont,
-                self.fe,
-            );
+            F.fromMontgomery(&nonMont, self.fe);
             return nonMont;
         }
 
         /// Add two field elements.
         ///
         /// Adds the current field element to another field element.
-        pub fn add(
-            self: Self,
-            rhs: Self,
-        ) Self {
+        pub fn add(self: Self, rhs: Self) Self {
             var ret: F.NonMontgomeryDomainFieldElement = undefined;
-            F.add(
-                &ret,
-                self.fe,
-                rhs.fe,
-            );
+            F.add(&ret, self.fe, rhs.fe);
             return .{ .fe = ret };
         }
 
         /// Double a field element.
         ///
         /// Adds the current field element to itself.
-        pub fn double(
-            self: Self,
-        ) Self {
+        pub fn double(self: Self) Self {
             var ret: F.NonMontgomeryDomainFieldElement = undefined;
-            F.add(
-                &ret,
-                self.fe,
-                self.fe,
-            );
+            F.add(&ret, self.fe, self.fe);
             return .{ .fe = ret };
         }
 
         /// Calculating mod sqrt
         /// TODO: add precomution?
-        pub fn sqrt(
-            elem: Self,
-        ) ?Self {
-            const a = elem.toInteger();
-
-            const v = tonelliShanks(@intCast(a), @intCast(modulo));
-            if (v[2]) {
-                return Self.fromInt(u256, @intCast(v[0]));
-            }
-
-            return null;
+        pub fn sqrt(self: Self) ?Self {
+            const v = tonelliShanks(
+                @intCast(self.toInteger()),
+                @intCast(modulo),
+            );
+            return if (v[2]) Self.fromInt(u256, @intCast(v[0])) else null;
         }
 
         /// Subtract one field element from another.
         ///
         /// Subtracts another field element from the current field element.
-        pub fn sub(
-            self: Self,
-            rhs: Self,
-        ) Self {
+        pub fn sub(self: Self, rhs: Self) Self {
             var ret: F.MontgomeryDomainFieldElement = undefined;
-            F.sub(
-                &ret,
-                self.fe,
-                rhs.fe,
-            );
+            F.sub(&ret, self.fe, rhs.fe);
             return .{ .fe = ret };
         }
 
-        pub fn mod(
-            self: Self,
-            rhs: Self,
-        ) Self {
-            return Self.fromInt(u256, @mod(self.toInteger(), rhs.toInteger()));
+        pub fn mod(self: Self, rhs: Self) Self {
+            return Self.fromInt(
+                u256,
+                @mod(self.toInteger(), rhs.toInteger()),
+            );
         }
 
         // multiply two field elements and return the result modulo the modulus
@@ -454,10 +416,7 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
         ///
         /// Computes the current field element raised to the power of 2 to the `exponent` power.
         /// The result is equivalent to repeatedly squaring the field element.
-        pub fn pow2(
-            self: Self,
-            comptime exponent: u8,
-        ) Self {
+        pub fn pow2(self: Self, comptime exponent: u8) Self {
             var ret = self;
             inline for (exponent) |_| {
                 ret = ret.mul(ret);
@@ -468,18 +427,13 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
         /// Raise a field element to a general power.
         ///
         /// Computes the field element raised to a general power specified by the `exponent`.
-        pub fn pow(
-            self: Self,
-            exponent: u256,
-        ) Self {
+        pub fn pow(self: Self, exponent: u256) Self {
             var res = one();
             var exp = exponent;
             var base = self;
 
             while (exp > 0) : (exp = exp / 2) {
-                if (exp & 1 == 1) {
-                    res = res.mul(base);
-                }
+                if (exp & 1 == 1) res = res.mul(base);
                 base = base.mul(base);
             }
             return res;
@@ -499,21 +453,12 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
             var acc = one();
             for (0..in.len) |i| {
                 out[i] = acc;
-                acc = mul(
-                    acc,
-                    in[i],
-                );
+                acc = acc.mul(in[i]);
             }
             acc = acc.inv() orelse return error.CantInvertZeroElement;
             for (0..in.len) |i| {
-                out[in.len - i - 1] = mul(
-                    out[in.len - i - 1],
-                    acc,
-                );
-                acc = mul(
-                    acc,
-                    in[in.len - i - 1],
-                );
+                out[in.len - i - 1] = out[in.len - i - 1].mul(acc);
+                acc = acc.mul(in[in.len - i - 1]);
             }
         }
 
@@ -553,26 +498,17 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
         /// Divide one field element by another.
         ///
         /// Divides the current field element by another field element.
-        pub fn div(
-            self: Self,
-            den: Self,
-        ) !Self {
-            const den_inv = den.inv() orelse return error.DivisionByZero;
-            return self.mul(den_inv);
+        pub fn div(self: Self, den: Self) !Self {
+            return self.mul(
+                den.inv() orelse return error.DivisionByZero,
+            );
         }
 
         /// Check if two field elements are equal.
         ///
         /// Determines whether the current field element is equal to another field element.
-        pub fn eql(
-            self: Self,
-            rhs: Self,
-        ) bool {
-            return std.mem.eql(
-                u64,
-                &self.fe,
-                &rhs.fe,
-            );
+        pub fn eql(self: Self, rhs: Self) bool {
+            return std.mem.eql(u64, &self.fe, &rhs.fe);
         }
 
         /// Convert the field element to a u256 integer.
@@ -580,16 +516,10 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
         /// Converts the field element to a u256 integer.
         pub fn toInteger(self: Self) u256 {
             var non_mont: F.NonMontgomeryDomainFieldElement = undefined;
-            F.fromMontgomery(
-                &non_mont,
-                self.fe,
-            );
+            F.fromMontgomery(&non_mont, self.fe);
 
             var bytes: [BytesSize]u8 = [_]u8{0} ** BytesSize;
-            F.toBytes(
-                &bytes,
-                non_mont,
-            );
+            F.toBytes(&bytes, non_mont);
 
             return std.mem.readInt(
                 u256,
@@ -612,10 +542,7 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
             }
 
             // Otherwise, it's safe to cast
-            return @as(
-                u64,
-                @intCast(asU256),
-            );
+            return @as(u64, @intCast(asU256));
         }
 
         /// Calculate the Legendre symbol of a field element.
@@ -631,12 +558,12 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
             const ls = a.pow((Modulo - 1) / 2);
 
             const modulo_minus_one = comptime fromInt(u256, Modulo - 1);
-            if (ls.eql(modulo_minus_one)) {
-                return -1;
-            } else if (ls.isZero()) {
-                return 0;
-            }
-            return 1;
+            return if (ls.eql(modulo_minus_one))
+                -1
+            else if (ls.isZero())
+                0
+            else
+                1;
         }
 
         /// Compare two field elements and return the ordering result.
@@ -650,14 +577,8 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
         pub fn cmp(self: Self, rhs: Self) std.math.Order {
             var a_non_mont: F.NonMontgomeryDomainFieldElement = undefined;
             var b_non_mont: F.NonMontgomeryDomainFieldElement = undefined;
-            F.fromMontgomery(
-                &a_non_mont,
-                self.fe,
-            );
-            F.fromMontgomery(
-                &b_non_mont,
-                rhs.fe,
-            );
+            F.fromMontgomery(&a_non_mont, self.fe);
+            F.fromMontgomery(&b_non_mont, rhs.fe);
             _ = std.mem.reverse(u64, a_non_mont[0..]);
             _ = std.mem.reverse(u64, b_non_mont[0..]);
             return std.mem.order(
