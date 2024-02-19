@@ -226,17 +226,23 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
         /// Convert the field element to a bits little endian array.
         ///
         /// This function converts the field element to a byte array for serialization.
-        pub fn toBitsLe(self: Self) [@bitSizeOf(u256)]bool {
-            var bits = [_]bool{false} ** @bitSizeOf(u256);
+        pub fn toBitsLe(self: Self) [@bitSizeOf(u256)]u1 {
+            var bits = [_]u1{0} ** @bitSizeOf(u256);
             const nmself = self.fromMontgomery();
 
-            for (0..4) |ind_element| {
-                for (0..64) |ind_bit| {
-                    bits[ind_element * 64 + ind_bit] = (nmself[ind_element] >> @intCast(ind_bit)) & 1 == 1;
+            inline for (0..4) |ind_element| {
+                inline for (0..64) |ind_bit| {
+                    bits[ind_element * 64 + ind_bit] = @intCast((nmself[ind_element] >> ind_bit) & 1);
                 }
             }
 
             return bits;
+        }
+
+        pub fn toBitsBe(self: Self) [@bitSizeOf(u256)]u1 {
+            var bits_le = self.toBitsLe();
+            std.mem.reverse(u1, &bits_le);
+            return bits_le;
         }
 
         /// Convert the field element to a byte array.
@@ -403,16 +409,9 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
         /// Multiply two field elements.
         ///
         /// Multiplies the current field element by another field element.
-        pub fn mul(
-            self: Self,
-            rhs: Self,
-        ) Self {
+        pub fn mul(self: Self, rhs: Self) Self {
             var ret: F.MontgomeryDomainFieldElement = undefined;
-            F.mul(
-                &ret,
-                self.fe,
-                rhs.fe,
-            );
+            F.mul(&ret, self.fe, rhs.fe);
             return .{ .fe = ret };
         }
 
@@ -421,21 +420,9 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
         /// Multiplies the current field element by the constant 5.
         pub fn mulBy5(self: Self) Self {
             var ret: F.MontgomeryDomainFieldElement = undefined;
-            F.add(
-                &ret,
-                self.fe,
-                self.fe,
-            );
-            F.add(
-                &ret,
-                ret,
-                ret,
-            );
-            F.add(
-                &ret,
-                ret,
-                self.fe,
-            );
+            F.add(&ret, self.fe, self.fe);
+            F.add(&ret, ret, ret);
+            F.add(&ret, ret, self.fe);
             return .{ .fe = ret };
         }
 
@@ -444,11 +431,7 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
         /// Negates the value of the current field element.
         pub fn neg(self: Self) Self {
             var ret: F.MontgomeryDomainFieldElement = undefined;
-            F.sub(
-                &ret,
-                base_zero.fe,
-                self.fe,
-            );
+            F.sub(&ret, base_zero.fe, self.fe);
             return .{ .fe = ret };
         }
 
@@ -531,10 +514,7 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
         /// Batch inversion of multiple field elements.
         ///
         /// Performs batch inversion of a slice of field elements in place.
-        pub fn batchInv(
-            out: []Self,
-            in: []const Self,
-        ) !void {
+        pub fn batchInv(out: []Self, in: []const Self) !void {
             std.debug.assert(out.len == in.len);
 
             var acc = one();
@@ -584,13 +564,9 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
             }
 
             // Not invertible
-            if (r > 1) {
-                return null;
-            }
+            if (r > 1) return null;
 
-            if (t < 0) {
-                t = t + Modulo;
-            }
+            if (t < 0) t = t + Modulo;
 
             return Self.fromInt(u256, @intCast(t));
         }

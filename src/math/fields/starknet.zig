@@ -7,6 +7,7 @@ const FELT_BYTE_SIZE = @import("./constants.zig").FELT_BYTE_SIZE;
 const TEST_ITERATIONS = @import("../../main.zig").TEST_ITERATIONS;
 const expect = std.testing.expect;
 const expectEqual = std.testing.expectEqual;
+const expectEqualSlices = std.testing.expectEqualSlices;
 
 // Base field for the Stark curve.
 // The prime is 0x800000000000011000000000000000000000000000000000000000000000001.
@@ -994,7 +995,31 @@ test "Felt252 wrapping_shr" {
     );
 }
 
-test "Felt252: arithmetic operations" {
+test "Felt252: toBitsLe" {
+    const one = Felt252.one();
+    var bits_one = [_]u1{0} ** @bitSizeOf(u256);
+    bits_one[0] = 1;
+    try expectEqualSlices(u1, &bits_one, &one.toBitsLe());
+
+    const max_u64 = Felt252.fromInt(u64, std.math.maxInt(u64));
+    var bits_max_u64 = [_]u1{0} ** @bitSizeOf(u256);
+    for (0..64) |i| bits_max_u64[i] = 1;
+    try expectEqualSlices(u1, &bits_max_u64, &max_u64.toBitsLe());
+}
+
+test "Felt252: toBitsBe" {
+    const one = Felt252.one();
+    var bits_one = [_]u1{0} ** @bitSizeOf(u256);
+    bits_one[255] = 1;
+    try expectEqualSlices(u1, &bits_one, &one.toBitsBe());
+
+    const max_u64 = Felt252.fromInt(u64, std.math.maxInt(u64));
+    var bits_max_u64 = [_]u1{0} ** @bitSizeOf(u256);
+    for (3 * 64..256) |i| bits_max_u64[i] = 1;
+    try expectEqualSlices(u1, &bits_max_u64, &max_u64.toBitsBe());
+}
+
+test "Felt252: arithmetic addition operations" {
 
     // Initialize a pseudo-random number generator (PRNG) with a seed of 0.
     var prng = std.Random.DefaultPrng.init(0);
@@ -1038,5 +1063,88 @@ test "Felt252: arithmetic operations" {
         try expect(c.add(c).eql(c.double()));
         try expect(zero.eql(zero.double()));
         try expect(zero.eql(zero.neg().double()));
+    }
+}
+
+test "Felt252: arithmetic subtraction operations" {
+    // Initialize a pseudo-random number generator (PRNG) with a seed of 0.
+    var prng = std.Random.DefaultPrng.init(0);
+    // Generate a random number using the PRNG.
+    const random = prng.random();
+
+    // Iterate over the test iterations.
+    for (0..TEST_ITERATIONS) |_| {
+        const a = Felt252.rand(random);
+        const b = Felt252.rand(random);
+        const zero = Felt252.zero();
+
+        // Associativity
+        try expect(a.sub(b).add(b.sub(a)).isZero());
+
+        // Identity
+        try expect(zero.sub(a).eql(a.neg()));
+        try expect(zero.sub(b).eql(b.neg()));
+        try expect(a.sub(zero).eql(a));
+        try expect(b.sub(zero).eql(b));
+    }
+}
+
+test "Felt252: arithmetic multiplication operations" {
+
+    // Initialize a pseudo-random number generator (PRNG) with a seed of 0.
+    var prng = std.Random.DefaultPrng.init(0);
+    // Generate a random number using the PRNG.
+    const random = prng.random();
+
+    // Iterate over the test iterations.
+    for (0..TEST_ITERATIONS) |_| {
+        const a = Felt252.rand(random);
+        const b = Felt252.rand(random);
+        const c = Felt252.rand(random);
+        const zero = Felt252.zero();
+        const one = Felt252.one();
+
+        // Associativity
+        try expect(a.mul(b).mul(c).eql(a.mul(c.mul(b))));
+
+        // Commutativity
+        try expect(a.mul(b).eql(b.mul(a)));
+
+        // Identity
+        try expect(one.mul(a).eql(a));
+        try expect(one.mul(b).eql(b));
+        try expect(one.mul(c).eql(c));
+
+        try expect(zero.mul(a).eql(zero));
+        try expect(zero.mul(b).eql(zero));
+        try expect(zero.mul(c).eql(zero));
+
+        // Inverses
+        try expect(a.mul(a.inv().?).eql(one));
+        try expect(b.mul(b.inv().?).eql(one));
+        try expect(c.mul(c.inv().?).eql(one));
+
+        // Associativity and commutativity simultaneously
+        try expect(a.mul(b).mul(c).eql(a.mul(c).mul(b)));
+        try expect(a.mul(c).mul(b).eql(b.mul(c).mul((a))));
+
+        // Squaring
+        try expect(a.mul(a).eql(a.square()));
+        try expect(b.mul(b).eql(b.square()));
+        try expect(c.mul(c).eql(c.square()));
+
+        // Distributivity
+        try expect(a.mul(b.add(c)).eql(a.mul(b).add(a.mul(c))));
+        try expect(b.mul(a.add(c)).eql(b.mul(a).add(b.mul(c))));
+        try expect(c.mul(a.add(b)).eql(c.mul(a).add(c.mul(b))));
+        try expect(a.add(b).square().eql(
+            a.square().add(b.square()).add(a.mul(b).double()),
+        ));
+        try expect(b.add(c).square().eql(
+            b.square().add(c.square()).add(b.mul(c).double()),
+        ));
+        try expect(c.add(a).square().eql(
+            c.square().add(a.square()).add(c.mul(a).double()),
+        ));
     }
 }

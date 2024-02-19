@@ -531,6 +531,23 @@ pub const AffinePoint = struct {
             .infinity = false,
         };
     }
+
+    pub fn mulByBitsBe(self: *const Self, bits: [@bitSizeOf(u256)]u1) !Self {
+        var product = AffinePoint.identity();
+
+        const first_one = std.mem.indexOfScalar(u1, &bits, 1) orelse @bitSizeOf(u256);
+
+        for (bits[first_one..]) |bit| {
+            product.doubleAssign();
+            if (bit == 1) try product.addAssign(self);
+        }
+
+        return product;
+    }
+
+    pub fn mulByScalar(self: *const Self, rhs: *const Felt252) !Self {
+        return try self.mulByBitsBe(rhs.toBitsBe());
+    }
 };
 
 test "AffinePoint: default value should correspond to identity" {
@@ -1122,7 +1139,7 @@ test "AffinePoint: fromProjectivePoint should give an AffinePoint from a Project
     );
 }
 
-test "AffinePoint: fuzzing testing of arithmetic operations" {
+test "AffinePoint: fuzzing testing of arithmetic addition operations" {
     // Initialize a pseudo-random number generator (PRNG) with a seed of 0.
     var prng = std.Random.DefaultPrng.init(0);
     // Generate a random number using the PRNG.
@@ -1173,5 +1190,41 @@ test "AffinePoint: fuzzing testing of arithmetic operations" {
         try expect((try c.add(&c)).eql(c.double()));
         try expect(zero.eql(zero.double()));
         try expect(zero.eql(zero.neg().double()));
+    }
+}
+
+// TODO: review this, not working properly
+test "AffinePoint: fuzzing testing of arithmetic multiplication operations" {
+    // Initialize a pseudo-random number generator (PRNG) with a seed of 0.
+    var prng = std.Random.DefaultPrng.init(0);
+    // Generate a random number using the PRNG.
+    const random = prng.random();
+
+    // Iterate over the test iterations.
+    for (0..TEST_ITERATIONS) |_| {
+        // Generate a random affine point 'a'.
+        var a = AffinePoint.rand(random);
+
+        // Convert affine points to projective points.
+        // var b = Felt252.rand(random);
+        // var c = Felt252.rand(random);
+        var zero = Felt252.zero();
+        var one = Felt252.one();
+
+        // Identity
+        try expect((try a.mulByBitsBe(zero.toBitsBe())).eql(.{}));
+        try expect((try a.mulByBitsBe(one.toBitsBe())).eql(a));
+        try expect((try a.mulByScalar(&zero)).eql(.{}));
+        try expect((try a.mulByScalar(&one)).eql(a));
+
+        // // Associativity
+        // try expect(a.mulByScalar(&b).mulByScalar(&c).eql(
+        //     a.mulByScalar(&b.mul(c)),
+        // ));
+
+        // // Inverses
+        // try expect(a_projective.mulByScalar(&b.inv().?).mulByScalar(&b).eql(
+        //     a_projective,
+        // ));
     }
 }

@@ -164,7 +164,6 @@ pub const ProjectivePointJacobian = struct {
             self.y.mul(z2z2.mul(rhs.z)).eql(rhs.y.mul(z1z1.mul(self.z)));
     }
 
-
     /// Checks if this projective point lies on the elliptic curve.
     ///
     /// This function determines whether the given projective point lies on the elliptic curve defined
@@ -807,7 +806,7 @@ test "ProjectivePointJacobian: isOnCurve should return false if the point is not
     try expect(!ProjectivePointJacobian.fromAffinePoint(&b).isOnCurve());
 }
 
-test "ProjectivePointJacobian: fuzzing testing of arithmetic operations" {
+test "ProjectivePointJacobian: fuzzing testing of arithmetic addition operations" {
     // Initialize a pseudo-random number generator (PRNG) with a seed of 0.
     var prng = std.Random.DefaultPrng.init(0);
     // Generate a random number using the PRNG.
@@ -889,5 +888,44 @@ test "ProjectivePointJacobian: fuzzing testing of arithmetic operations" {
         try expect(a_projective.addAffine(&c).addAffine(&b).eql(
             b_projective.add(&c_projective).add(&a_projective),
         ));
+    }
+}
+
+test "ProjectivePointJacobian: fuzzing testing of arithmetic subtraction operations" {
+    // Initialize a pseudo-random number generator (PRNG) with a seed of 0.
+    var prng = std.Random.DefaultPrng.init(0);
+    // Generate a random number using the PRNG.
+    const random = prng.random();
+
+    // Iterate over the test iterations.
+    for (0..TEST_ITERATIONS) |_| {
+        // Generate a random affine point 'a'.
+        var a = AffinePoint.rand(random);
+
+        // Generate another random affine point 'b'.
+        var b = AffinePoint.rand(random);
+
+        // Convert affine points to projective points.
+        var a_projective = ProjectivePointJacobian.fromAffinePoint(&a);
+        var b_projective = ProjectivePointJacobian.fromAffinePoint(&b);
+        var zero: ProjectivePointJacobian = .{};
+
+        // Anti-commutativity
+        try expect(a_projective.sub(&b_projective).add(
+            &b_projective.sub(&a_projective),
+        ).isIdentity());
+        try expect(a_projective.subAffine(&b).add(
+            &b_projective.subAffine(&a),
+        ).isIdentity());
+        try expect(a_projective.subAffine(&b).addAffine(
+            &try b.sub(&a),
+        ).isIdentity());
+
+        // Identity
+        try expect(zero.sub(&a_projective).eql(a_projective.neg()));
+        try expect(zero.sub(&b_projective).eql(b_projective.neg()));
+
+        try expect(a_projective.sub(&zero).eql(a_projective));
+        try expect(b_projective.sub(&zero).eql(b_projective));
     }
 }

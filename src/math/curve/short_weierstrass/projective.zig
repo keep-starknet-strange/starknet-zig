@@ -259,16 +259,21 @@ pub const ProjectivePoint = struct {
         };
     }
 
-    pub fn mulByBits(self: Self, rhs: [@bitSizeOf(u256)]bool) Self {
+    pub fn mulByBitsBe(self: *const Self, bits: [@bitSizeOf(u256)]u1) Self {
         var product = ProjectivePoint.identity();
 
-        inline for (1..@bitSizeOf(u256) + 1) |idx| {
+        const first_one = std.mem.indexOfScalar(u1, &bits, 1) orelse @bitSizeOf(u256);
+
+        for (bits[first_one..]) |bit| {
             product.doubleAssign();
-            if (rhs[@bitSizeOf(u256) - idx]) {
-                product.addAssign(self);
-            }
+            if (bit == 1) product.addAssign(self);
         }
+
         return product;
+    }
+
+    pub fn mulByScalar(self: *const Self, rhs: *const Felt252) Self {
+        return self.mulByBitsBe(rhs.toBitsBe());
     }
 
     /// Adds another projective point to this point and returns the result.
@@ -440,12 +445,12 @@ pub const ProjectivePoint = struct {
         // slope = (y0 * z1 - y1 * z0) / (x0 * z1 - x1 * z0)
         // Null denominator the slope
         if (u_0.eql(u_1)) {
-            if (self.y.eql(rhs.y.neg())) {
-                // Set this point to the identity (point at infinity).
-                self.* = .{};
-            } else {
+            if (self.y.mul(rhs.z).eql(rhs.y.mul(self.z))) {
                 // Perform point doubling operation.
                 self.doubleAssign();
+            } else {
+                // Set this point to the identity (point at infinity).
+                self.* = .{};
             }
             return;
         }
@@ -757,7 +762,7 @@ test "ProjectivePoint: isOnCurve should return false if the point is not on the 
     try expect(!ProjectivePoint.fromAffinePoint(&b).isOnCurve());
 }
 
-test "ProjectivePoint: fuzzing testing of arithmetic operations" {
+test "ProjectivePoint: fuzzing testing of arithmetic addition operations" {
     // Initialize a pseudo-random number generator (PRNG) with a seed of 0.
     var prng = std.Random.DefaultPrng.init(0);
     // Generate a random number using the PRNG.
@@ -843,5 +848,81 @@ test "ProjectivePoint: fuzzing testing of arithmetic operations" {
         try expect(a_projective.addAffine(&c).addAffine(&b).eql(
             b_projective.add(&c_projective).add(&a_projective),
         ));
+    }
+}
+
+test "ProjectivePoint: fuzzing testing of arithmetic subtraction operations" {
+    // Initialize a pseudo-random number generator (PRNG) with a seed of 0.
+    var prng = std.Random.DefaultPrng.init(0);
+    // Generate a random number using the PRNG.
+    const random = prng.random();
+
+    // Iterate over the test iterations.
+    for (0..TEST_ITERATIONS) |_| {
+        // Generate a random affine point 'a'.
+        var a = AffinePoint.rand(random);
+
+        // Generate another random affine point 'b'.
+        var b = AffinePoint.rand(random);
+
+        // Convert affine points to projective points.
+        var a_projective = ProjectivePoint.fromAffinePoint(&a);
+        var b_projective = ProjectivePoint.fromAffinePoint(&b);
+        var zero: ProjectivePoint = .{};
+
+        // Anti-commutativity
+        try expect(a_projective.sub(&b_projective).add(
+            &b_projective.sub(&a_projective),
+        ).isIdentity());
+        try expect(a_projective.subAffine(&b).add(
+            &b_projective.subAffine(&a),
+        ).isIdentity());
+        try expect(a_projective.subAffine(&b).addAffine(
+            &try b.sub(&a),
+        ).isIdentity());
+
+        // Identity
+        try expect(zero.sub(&a_projective).eql(a_projective.neg()));
+        try expect(zero.sub(&b_projective).eql(b_projective.neg()));
+
+        try expect(a_projective.sub(&zero).eql(a_projective));
+        try expect(b_projective.sub(&zero).eql(b_projective));
+    }
+}
+
+// TODO: review this, not working properly
+test "ProjectivePoint: fuzzing testing of arithmetic multiplication operations" {
+    // Initialize a pseudo-random number generator (PRNG) with a seed of 0.
+    var prng = std.Random.DefaultPrng.init(0);
+    // Generate a random number using the PRNG.
+    const random = prng.random();
+
+    // Iterate over the test iterations.
+    for (0..TEST_ITERATIONS) |_| {
+        // Generate a random affine point 'a'.
+        var a = AffinePoint.rand(random);
+
+        // Convert affine points to projective points.
+        var a_projective = ProjectivePoint.fromAffinePoint(&a);
+        // var b = Felt252.rand(random);
+        // var c = Felt252.rand(random);
+        var zero = Felt252.zero();
+        var one = Felt252.one();
+
+        // Identity
+        try expect(a_projective.mulByBitsBe(zero.toBitsBe()).eql(.{}));
+        try expect(a_projective.mulByBitsBe(one.toBitsBe()).eql(a_projective));
+        try expect(a_projective.mulByScalar(&zero).eql(.{}));
+        try expect(a_projective.mulByScalar(&one).eql(a_projective));
+
+        // // Associativity
+        // try expect(a_projective.mulByScalar(&b).mulByScalar(&c).eql(
+        //     a_projective.mulByScalar(&b.mul(c)),
+        // ));
+
+        // // Inverses
+        // try expect(a_projective.mulByScalar(&b.inv().?).mulByScalar(&b).eql(
+        //     a_projective,
+        // ));
     }
 }
