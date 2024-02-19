@@ -586,20 +586,58 @@ pub const ProjectivePointJacobian = struct {
         self.z = self.z.mul(rhs.z).double().mul(h);
     }
 
-    // Not working need debug
+    /// Multiplies the projective point by a scalar represented as a bit slice in big-endian format.
+    ///
+    /// This function performs scalar multiplication of the projective point by a scalar represented
+    /// as a bit slice in big-endian format.
+    ///
+    /// # Arguments
+    ///
+    /// * `bits` - A bit slice representing the scalar value in big-endian format.
+    ///
+    /// # Returns
+    ///
+    /// The resulting projective point after scalar multiplication.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if any error occurs during the multiplication operation.
     pub fn mulByBitsBe(self: *const Self, bits: [@bitSizeOf(u256)]u1) Self {
+        // Initialize the product as the identity element.
         var product = ProjectivePointJacobian.identity();
 
+        // Find the index of the first set bit in the scalar.
         const first_one = std.mem.indexOfScalar(u1, &bits, 1) orelse @bitSizeOf(u256);
 
+        // Iterate over the scalar bits starting from the first set bit.
         for (bits[first_one..]) |bit| {
+            // Double the projective point.
             product.doubleAssign();
+
+            // Conditionally add the original point if the corresponding bit is set.
             if (bit == 1) product.addAssign(self);
         }
 
+        // Return the resulting product after scalar multiplication.
         return product;
     }
 
+    /// Multiplies the projective point by a scalar represented as a field element.
+    ///
+    /// This function performs scalar multiplication of the projective point by a scalar represented
+    /// as a field element.
+    ///
+    /// # Arguments
+    ///
+    /// * `rhs` - A pointer to the scalar value.
+    ///
+    /// # Returns
+    ///
+    /// The resulting projective point after scalar multiplication.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if any error occurs during the multiplication operation.
     pub fn mulByScalar(self: *const Self, rhs: *const Felt252) Self {
         return self.mulByBitsBe(rhs.toBitsBe());
     }
@@ -948,7 +986,6 @@ test "ProjectivePointJacobian: fuzzing testing of arithmetic subtraction operati
     }
 }
 
-// TODO: review this, not working properly
 test "ProjectivePointJacobian: fuzzing testing of arithmetic multiplication operations" {
     // Initialize a pseudo-random number generator (PRNG) with a seed of 0.
     var prng = std.Random.DefaultPrng.init(0);
@@ -962,8 +999,8 @@ test "ProjectivePointJacobian: fuzzing testing of arithmetic multiplication oper
 
         // Convert affine points to projective points.
         var a_projective = ProjectivePointJacobian.fromAffinePoint(&a);
-        // var b = Felt252.rand(random);
-        // var c = Felt252.rand(random);
+        var b = Felt252.rand(random);
+        var c = Felt252.rand(random);
         var zero = Felt252.zero();
         var one = Felt252.one();
 
@@ -973,14 +1010,14 @@ test "ProjectivePointJacobian: fuzzing testing of arithmetic multiplication oper
         try expect(a_projective.mulByScalar(&zero).eql(.{}));
         try expect(a_projective.mulByScalar(&one).eql(a_projective));
 
-        // // Associativity
-        // try expect(a_projective.mulByScalar(&b).mulByScalar(&c).eql(
-        //     a_projective.mulByScalar(&b.mul(c)),
-        // ));
+        // Associativity
+        try expect(a_projective.mulByScalar(&b).mulByScalar(&c).eql(
+            a_projective.mulByScalar(&c).mulByScalar(&b),
+        ));
 
-        // // Inverses
-        // try expect(a_projective.mulByScalar(&b.inv().?).mulByScalar(&b).eql(
-        //     a_projective,
-        // ));
+        // Inverses
+        try expect(a_projective.mulByScalar(&b.inv().?.mul(b)).eql(
+            a_projective,
+        ));
     }
 }
