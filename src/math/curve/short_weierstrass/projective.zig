@@ -259,6 +259,7 @@ pub const ProjectivePoint = struct {
         };
     }
 
+    // Not working need debug
     pub fn mulByBitsBe(self: *const Self, bits: [@bitSizeOf(u256)]u1) Self {
         var product = ProjectivePoint.identity();
 

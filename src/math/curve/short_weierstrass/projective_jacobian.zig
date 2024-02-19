@@ -585,6 +585,24 @@ pub const ProjectivePointJacobian = struct {
         // This is equal to Z3 = 2 * Z1 * Z2 * H, and computing it this way is faster.
         self.z = self.z.mul(rhs.z).double().mul(h);
     }
+
+    // Not working need debug
+    pub fn mulByBitsBe(self: *const Self, bits: [@bitSizeOf(u256)]u1) Self {
+        var product = ProjectivePointJacobian.identity();
+
+        const first_one = std.mem.indexOfScalar(u1, &bits, 1) orelse @bitSizeOf(u256);
+
+        for (bits[first_one..]) |bit| {
+            product.doubleAssign();
+            if (bit == 1) product.addAssign(self);
+        }
+
+        return product;
+    }
+
+    pub fn mulByScalar(self: *const Self, rhs: *const Felt252) Self {
+        return self.mulByBitsBe(rhs.toBitsBe());
+    }
 };
 
 test "ProjectivePointJacobian: initUnchecked should return a projective point (even if not valid)" {
@@ -927,5 +945,42 @@ test "ProjectivePointJacobian: fuzzing testing of arithmetic subtraction operati
 
         try expect(a_projective.sub(&zero).eql(a_projective));
         try expect(b_projective.sub(&zero).eql(b_projective));
+    }
+}
+
+// TODO: review this, not working properly
+test "ProjectivePointJacobian: fuzzing testing of arithmetic multiplication operations" {
+    // Initialize a pseudo-random number generator (PRNG) with a seed of 0.
+    var prng = std.Random.DefaultPrng.init(0);
+    // Generate a random number using the PRNG.
+    const random = prng.random();
+
+    // Iterate over the test iterations.
+    for (0..TEST_ITERATIONS) |_| {
+        // Generate a random affine point 'a'.
+        var a = AffinePoint.rand(random);
+
+        // Convert affine points to projective points.
+        var a_projective = ProjectivePointJacobian.fromAffinePoint(&a);
+        // var b = Felt252.rand(random);
+        // var c = Felt252.rand(random);
+        var zero = Felt252.zero();
+        var one = Felt252.one();
+
+        // Identity
+        try expect(a_projective.mulByBitsBe(zero.toBitsBe()).eql(.{}));
+        try expect(a_projective.mulByBitsBe(one.toBitsBe()).eql(a_projective));
+        try expect(a_projective.mulByScalar(&zero).eql(.{}));
+        try expect(a_projective.mulByScalar(&one).eql(a_projective));
+
+        // // Associativity
+        // try expect(a_projective.mulByScalar(&b).mulByScalar(&c).eql(
+        //     a_projective.mulByScalar(&b.mul(c)),
+        // ));
+
+        // // Inverses
+        // try expect(a_projective.mulByScalar(&b.inv().?).mulByScalar(&b).eql(
+        //     a_projective,
+        // ));
     }
 }
