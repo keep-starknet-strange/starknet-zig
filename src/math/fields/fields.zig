@@ -40,48 +40,6 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
             },
         };
 
-        const base_zero = val: {
-            var bz: F.MontgomeryDomainFieldElement = undefined;
-            F.fromBytes(
-                &bz,
-                [_]u8{0} ** BytesSize,
-            );
-            break :val .{ .fe = bz };
-        };
-
-        const base_one = val: {
-            break :val .{
-                .fe = [4]u64{
-                    18446744073709551585,
-                    18446744073709551615,
-                    18446744073709551615,
-                    576460752303422960,
-                },
-            };
-        };
-
-        pub const base_two = val: {
-            break :val .{
-                .fe = [4]u64{
-                    18446744073709551553,
-                    18446744073709551615,
-                    18446744073709551615,
-                    576460752303422416,
-                },
-            };
-        };
-
-        pub const base_three = val: {
-            break :val .{
-                .fe = [4]u64{
-                    18446744073709551521,
-                    18446744073709551615,
-                    18446744073709551615,
-                    576460752303421872,
-                },
-            };
-        };
-
         fe: F.MontgomeryDomainFieldElement,
 
         /// Mask to apply to the highest limb to get the correct number of bits.
@@ -157,28 +115,49 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
         ///
         /// Returns a field element with a value of zero.
         pub inline fn zero() Self {
-            return base_zero;
+            return .{ .fe = [4]u64{ 0, 0, 0, 0 } };
         }
 
         /// Get the field element representing one.
         ///
         /// Returns a field element with a value of one.
         pub inline fn one() Self {
-            return base_one;
+            return .{
+                .fe = [4]u64{
+                    18446744073709551585,
+                    18446744073709551615,
+                    18446744073709551615,
+                    576460752303422960,
+                },
+            };
         }
 
         /// Get the field element representing two.
         ///
         /// Returns a field element with a value of two.
         pub inline fn two() Self {
-            return base_two;
+            return .{
+                .fe = [4]u64{
+                    18446744073709551553,
+                    18446744073709551615,
+                    18446744073709551615,
+                    576460752303422416,
+                },
+            };
         }
 
         /// Get the field element representing three.
         ///
         /// Returns a field element with a value of three.
         pub inline fn three() Self {
-            return base_three;
+            return .{
+                .fe = [4]u64{
+                    18446744073709551521,
+                    18446744073709551615,
+                    18446744073709551615,
+                    576460752303421872,
+                },
+            };
         }
 
         /// Create a field element from a byte array.
@@ -431,7 +410,7 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
         /// Negates the value of the current field element.
         pub fn neg(self: Self) Self {
             var ret: F.MontgomeryDomainFieldElement = undefined;
-            F.sub(&ret, base_zero.fe, self.fe);
+            F.sub(&ret, Self.zero().fe, self.fe);
             return .{ .fe = ret };
         }
 
@@ -439,7 +418,7 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
         ///
         /// Determines if the current field element is equal to zero.
         pub fn isZero(self: Self) bool {
-            return self.eql(base_zero);
+            return self.eql(Self.zero());
         }
 
         /// Check if the field element is one.
