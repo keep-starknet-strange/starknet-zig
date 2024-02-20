@@ -138,10 +138,7 @@ test "Felt252 fromInteger" {
 
 test "Felt252 toInt" {
     try expectEqual(
-        @as(
-            u256,
-            10,
-        ),
+        @as(u256, 10),
         Felt252.fromInt(u8, 10).toInt(),
     );
 
@@ -286,24 +283,18 @@ test "Felt252 toBytes" {
     );
 }
 
-test "Felt252 tryIntoU64" {
+test "Felt252 toU64" {
     try expectEqual(
-        @as(
-            u64,
-            10,
-        ),
-        try Felt252.fromInt(u8, 10).tryIntoU64(),
+        @as(u64, 10),
+        try Felt252.fromInt(u8, 10).toU64(),
     );
     try expectEqual(
-        @as(
-            u64,
-            std.math.maxInt(u64),
-        ),
-        try Felt252.fromInt(u64, std.math.maxInt(u64)).tryIntoU64(),
+        @as(u64, std.math.maxInt(u64)),
+        try Felt252.fromInt(u64, std.math.maxInt(u64)).toU64(),
     );
     try std.testing.expectError(
         error.ValueTooLarge,
-        Felt252.fromInt(u128, std.math.maxInt(u64) + 1).tryIntoU64(),
+        Felt252.fromInt(u128, std.math.maxInt(u64) + 1).toU64(),
     );
 }
 
@@ -316,10 +307,7 @@ test "Felt252 arithmetic operations" {
 
 test "Felt252 add" {
     try expectEqual(
-        @as(
-            u256,
-            0xf,
-        ),
+        @as(u256, 0xf),
         Felt252.fromInt(u8, 10).add(Felt252.fromInt(u8, 5)).toInt(),
     );
     try expect(Felt252.one().add(Felt252.zero()).isOne());
@@ -335,10 +323,7 @@ test "Felt252 add" {
 
 test "Felt252 sub" {
     try expectEqual(
-        @as(
-            u256,
-            0x5,
-        ),
+        @as(u256, 0x5),
         Felt252.fromInt(u8, 10).sub(Felt252.fromInt(u8, 5)).toInt(),
     );
     try expect(Felt252.fromInt(u256, std.math.maxInt(u256)).sub(Felt252.fromInt(u256, std.math.maxInt(u256))).isZero());
@@ -349,10 +334,7 @@ test "Felt252 mul" {
     try expect(Felt252.zero().mul(Felt252.zero()).isZero());
     try expect(Felt252.one().mul(Felt252.one()).isOne());
     try expectEqual(
-        @as(
-            u256,
-            0x32,
-        ),
+        @as(u256, 0x32),
         Felt252.fromInt(u8, 10).mul(Felt252.fromInt(u8, 5)).toInt(),
     );
     try expectEqual(
@@ -367,10 +349,7 @@ test "Felt252 mul" {
 test "Felt252 mulBy5" {
     try expect(Felt252.zero().mulBy5().isZero());
     try expectEqual(
-        @as(
-            u256,
-            5,
-        ),
+        @as(u256, 5),
         Felt252.one().mulBy5().toInt(),
     );
     try expectEqual(
@@ -401,10 +380,7 @@ test "Felt252 neg" {
 
 test "Felt252 square" {
     try expectEqual(
-        @as(
-            u256,
-            0x64,
-        ),
+        @as(u256, 0x64),
         Felt252.fromInt(u8, 10).square().toInt(),
     );
     try expectEqual(
@@ -435,10 +411,7 @@ test "Felt252 pow2" {
 
 test "Felt252 pow" {
     try expectEqual(
-        @as(
-            u256,
-            0x2540be400,
-        ),
+        @as(u256, 0x2540be400),
         Felt252.fromInt(u8, 10).pow(10).toInt(),
     );
     try expectEqual(
@@ -466,10 +439,7 @@ test "Felt252 inv" {
         Felt252.fromInt(u256, std.math.maxInt(u256)).inv().?.toInt(),
     );
     try expectEqual(
-        @as(
-            ?Felt252,
-            null,
-        ),
+        @as(?Felt252, null),
         Felt252.zero().inv(),
     );
 }
@@ -515,24 +485,15 @@ test "Felt252 div" {
 
 test "Felt252 legendre" {
     try expectEqual(
-        @as(
-            i2,
-            0,
-        ),
+        @as(i2, 0),
         Felt252.fromInt(u256, 0x1000000000000022000000000000000000000000000000000000000000000002).legendre(),
     );
     try expectEqual(
-        @as(
-            i2,
-            1,
-        ),
+        @as(i2, 1),
         Felt252.fromInt(u8, 10).legendre(),
     );
     try expectEqual(
-        @as(
-            i2,
-            -1,
-        ),
+        @as(i2, -1),
         Felt252.fromInt(u8, 135).legendre(),
     );
 }
@@ -623,7 +584,7 @@ test "Felt252 overflowing_shl" {
         @as(
             std.meta.Tuple(&.{ Felt252, bool }),
             .{
-                Felt252{ .fe = .{
+                .{ .fe = .{
                     0xfffffffffffffd82,
                     0xffffffffffffffff,
                     0xffffffffffffffff,
@@ -639,7 +600,7 @@ test "Felt252 overflowing_shl" {
         @as(
             std.meta.Tuple(&.{ Felt252, bool }),
             .{
-                Felt252{ .fe = .{
+                .{ .fe = .{
                     0xffffae6fc0008420,
                     0x2661ffffff,
                     0xffffffffedf00000,
@@ -655,7 +616,7 @@ test "Felt252 overflowing_shl" {
         @as(
             std.meta.Tuple(&.{ Felt252, bool }),
             .{
-                Felt252{ .fe = .{
+                .{ .fe = .{
                     0xfffffeacea720400, 0xffffffffffffffff, 0xffffffffffffffff, 0xffffe97b919243ff,
                 } },
                 true,
@@ -678,7 +639,7 @@ test "Felt252 overflowing_shl" {
         @as(
             std.meta.Tuple(&.{ Felt252, bool }),
             .{
-                Felt252{ .fe = .{ 0x0, 0x0, 0x0, 0xffffffffc06bf561 } },
+                .{ .fe = .{ 0x0, 0x0, 0x0, 0xffffffffc06bf561 } },
                 true,
             },
         ),
