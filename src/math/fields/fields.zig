@@ -263,14 +263,12 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
         /// Returns number of bits needed.
         pub fn numBits(self: Self) u64 {
             const nmself = self.fromMontgomery();
-            var num_bits: u64 = 0;
-            for (0..4) |i| {
-                if (nmself[3 - i] != 0) {
-                    num_bits = (4 - i) * @bitSizeOf(u64) - @clz(nmself[3 - i]);
-                    break;
-                }
+            inline for (0..4) |i| {
+                if (nmself[3 - i] != 0)
+                    return (4 - i) * @bitSizeOf(u64) - @clz(nmself[3 - i]);
             }
-            return num_bits;
+
+            return 0;
         }
 
         /// Check if the field element is lexicographically largest.
@@ -409,7 +407,9 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
         ///
         /// Computes the square of the current field element.
         pub fn square(self: Self) Self {
-            return self.mul(self);
+            var ret: F.MontgomeryDomainFieldElement = undefined;
+            F.square(&ret, self.fe);
+            return .{ .fe = ret };
         }
 
         /// Raise a field element to a power of 2.
@@ -418,9 +418,7 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
         /// The result is equivalent to repeatedly squaring the field element.
         pub fn pow2(self: Self, comptime exponent: u8) Self {
             var ret = self;
-            inline for (exponent) |_| {
-                ret = ret.mul(ret);
-            }
+            inline for (exponent) |_| ret = ret.mul(ret);
             return ret;
         }
 
@@ -499,9 +497,7 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
         ///
         /// Divides the current field element by another field element.
         pub fn div(self: Self, den: Self) !Self {
-            return self.mul(
-                den.inv() orelse return error.DivisionByZero,
-            );
+            return self.mul(den.inv() orelse return error.DivisionByZero);
         }
 
         /// Check if two field elements are equal.
@@ -534,15 +530,10 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
         pub fn tryIntoU64(self: Self) !u64 {
             const asU256 = self.toInt();
             // Check if the value is small enough to fit into a u64
-            if (asU256 > @as(
-                u256,
-                @intCast(std.math.maxInt(u64)),
-            )) {
-                return error.ValueTooLarge;
-            }
+            if (asU256 > std.math.maxInt(u64)) return error.ValueTooLarge;
 
             // Otherwise, it's safe to cast
-            return @as(u64, @intCast(asU256));
+            return @intCast(asU256);
         }
 
         /// Calculate the Legendre symbol of a field element.
@@ -613,8 +604,7 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
         /// `true` if `self` is less than or equal to `rhs`, `false` otherwise.
         pub fn le(self: Self, rhs: Self) bool {
             return switch (self.cmp(rhs)) {
-                .lt => true,
-                .eq => true,
+                .lt, .eq => true,
                 else => false,
             };
         }
@@ -644,8 +634,7 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
         /// `true` if `self` is greater than or equal to `rhs`, `false` otherwise.
         pub fn ge(self: Self, rhs: Self) bool {
             return switch (self.cmp(rhs)) {
-                .gt => true,
-                .eq => true,
+                .gt, .eq => true,
                 else => false,
             };
         }
@@ -674,10 +663,7 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
             const bits = @mod(rhs, 64);
 
             if (limbs >= Limbs) {
-                return .{
-                    Self.zero(),
-                    !self.eql(Self.zero()),
-                };
+                return .{ Self.zero(), !self.eql(Self.zero()) };
             }
             var res = self;
             if (bits == 0) {
@@ -780,11 +766,8 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
         ///
         /// The shifted value with saturation behavior, or `Self.Max` on overflow.
         pub fn saturating_shl(self: Self, rhs: usize) Self {
-            const _shl = self.overflowing_shl(rhs);
-            return switch (_shl[1]) {
-                false => _shl[0],
-                else => Self.Max,
-            };
+            const shl = self.overflowing_shl(rhs);
+            return if (!shl[1]) shl[0] else Self.Max;
         }
 
         /// Checked left shift by `rhs` bits.
@@ -802,11 +785,8 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
         /// - `Some(value)`: The shifted value if no overflow occurs.
         /// - [`null`]: If the bits shifted out would be non-zero.
         pub fn checked_shl(self: Self, rhs: usize) ?Self {
-            const _shl = self.overflowing_shl(rhs);
-            return switch (_shl[1]) {
-                false => _shl[0],
-                else => null,
-            };
+            const shl = self.overflowing_shl(rhs);
+            return if (!shl[1]) shl[0] else null;
         }
 
         /// Right shift by `rhs` bits with underflow detection.
@@ -830,12 +810,8 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
             const limbs = rhs / 64;
             const bits = @mod(rhs, 64);
 
-            if (limbs >= Limbs) {
-                return .{
-                    Self.zero(),
-                    !self.eql(Self.zero()),
-                };
-            }
+            if (limbs >= Limbs)
+                return .{ Self.zero(), !self.eql(Self.zero()) };
 
             var res = self;
             if (bits == 0) {
@@ -904,11 +880,8 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
         /// - `Some(value)`: The shifted value if no underflow occurs.
         /// - [`null`]: If the division is not exact.
         pub fn checked_shr(self: Self, rhs: usize) ?Self {
-            const _shl = self.overflowing_shr(rhs);
-            return switch (_shl[1]) {
-                false => _shl[0],
-                else => null,
-            };
+            const shl = self.overflowing_shr(rhs);
+            return if (!shl[1]) shl[0] else null;
         }
 
         /// Right shift by `rhs` bits with wrapping behavior.
