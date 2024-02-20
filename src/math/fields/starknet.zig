@@ -1148,3 +1148,28 @@ test "Felt252: arithmetic multiplication operations" {
         ));
     }
 }
+
+test "Felt252: fromInt operations" {
+    // Initialize a pseudo-random number generator (PRNG) with a seed of 0.
+    var prng = std.Random.DefaultPrng.init(0);
+    // Generate a random number using the PRNG.
+    const random = prng.random();
+
+    // Iterate over the test iterations.
+    for (0..TEST_ITERATIONS) |_| {
+        // Generate random unsigned integers of different sizes.
+        const u_8 = random.int(u8);
+        const u_16: u16 = u_8;
+        const u_32: u32 = u_8;
+        const u_64: u64 = u_8;
+        const u_128: u128 = u_8;
+        const u_256: u256 = u_8;
+
+        // Test the equality of `Felt252` instances created from different-sized integers.
+        try expect(Felt252.fromInt(u8, u_8).eql(Felt252.fromInt(u16, u_16)));
+        try expect(Felt252.fromInt(u8, u_8).eql(Felt252.fromInt(u32, u_32)));
+        try expect(Felt252.fromInt(u8, u_8).eql(Felt252.fromInt(u64, u_64)));
+        try expect(Felt252.fromInt(u8, u_8).eql(Felt252.fromInt(u128, u_128)));
+        try expect(Felt252.fromInt(u8, u_8).eql(Felt252.fromInt(u256, u_256)));
+    }
+}
