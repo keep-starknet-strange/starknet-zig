@@ -151,7 +151,7 @@ pub fn divMod(m: Felt252, n: Felt252) ECError!Felt252 {
 /// # Returns
 /// The result of the EC operation P + m * Q.
 pub fn ecOpImpl(const_partial_sum: ECPoint, const_doubled_point: ECPoint, m: Felt252, alpha: Felt252, height: u32) ECError!ECPoint {
-    var slope = m.toInteger();
+    var slope = m.toInt();
     var partial_sum = const_partial_sum;
     var doubled_point = const_doubled_point;
 

@@ -277,7 +277,7 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
         ///
         /// Determines whether the field element is larger than half of the field's modulus.
         pub fn lexographicallyLargest(self: Self) bool {
-            return self.toInteger() > QMinOneDiv2;
+            return self.toInt() > QMinOneDiv2;
         }
 
         /// Convert the field element to its non-Montgomery representation.
@@ -311,7 +311,7 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
         /// TODO: add precomution?
         pub fn sqrt(self: Self) ?Self {
             const v = tonelliShanks(
-                @intCast(self.toInteger()),
+                @intCast(self.toInt()),
                 @intCast(modulo),
             );
             return if (v[2]) Self.fromInt(u256, @intCast(v[0])) else null;
@@ -329,7 +329,7 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
         pub fn mod(self: Self, rhs: Self) Self {
             return Self.fromInt(
                 u256,
-                @mod(self.toInteger(), rhs.toInteger()),
+                @mod(self.toInt(), rhs.toInt()),
             );
         }
 
@@ -340,9 +340,9 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
             rhs: Self,
             modulus: Self,
         ) Self {
-            const s: u512 = @intCast(self.toInteger());
-            const o: u512 = @intCast(rhs.toInteger());
-            const m: u512 = @intCast(modulus.toInteger());
+            const s: u512 = @intCast(self.toInt());
+            const o: u512 = @intCast(rhs.toInt());
+            const m: u512 = @intCast(modulus.toInt());
 
             return Self.fromInt(u256, @intCast((s * o) % m));
         }
@@ -391,14 +391,14 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
         }
 
         pub fn modInverse(operand: Self, modulus: Self) !Self {
-            const ext = extendedGCD(@bitCast(operand.toInteger()), @bitCast(modulus.toInteger()));
+            const ext = extendedGCD(@bitCast(operand.toInt()), @bitCast(modulus.toInt()));
 
             if (ext.gcd != 1) {
                 @panic("GCD must be one");
             }
 
             const result = if (ext.x < 0)
-                ext.x + @as(i256, @bitCast(modulus.toInteger()))
+                ext.x + @as(i256, @bitCast(modulus.toInt()))
             else
                 ext.x;
 
@@ -441,7 +441,7 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
 
         /// Bitand operation
         pub fn bitAnd(self: Self, rhs: Self) Self {
-            return Self.fromInt(u256, self.toInteger() & rhs.toInteger());
+            return Self.fromInt(u256, self.toInt() & rhs.toInt());
         }
 
         /// Batch inversion of multiple field elements.
@@ -473,7 +473,7 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
             var r: u256 = Modulo;
             var t: i512 = 0;
 
-            var newr: u256 = self.toInteger();
+            var newr: u256 = self.toInt();
             var newt: i512 = 1;
 
             while (newr != 0) {
@@ -514,7 +514,7 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
         /// Convert the field element to a u256 integer.
         ///
         /// Converts the field element to a u256 integer.
-        pub fn toInteger(self: Self) u256 {
+        pub fn toInt(self: Self) u256 {
             var non_mont: F.NonMontgomeryDomainFieldElement = undefined;
             F.fromMontgomery(&non_mont, self.fe);
 
@@ -532,7 +532,7 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
         ///
         /// Attempts to convert the field element to a u64 if its value is within the representable range.
         pub fn tryIntoU64(self: Self) !u64 {
-            const asU256 = self.toInteger();
+            const asU256 = self.toInt();
             // Check if the value is small enough to fit into a u64
             if (asU256 > @as(
                 u256,
