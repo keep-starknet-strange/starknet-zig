@@ -65,35 +65,11 @@ pub const NonMontgomeryDomainFieldElement = [4]u64;
 /// Output Bounds:
 ///   out1: [0x0 ~> 0xffffffffffffffff]
 ///   out2: [0x0 ~> 0x1]
-inline fn addcarryxU64(
-    out1: *u64,
-    out2: *u1,
-    arg1: u1,
-    arg2: u64,
-    arg3: u64,
-) void {
+inline fn addcarryxU64(out1: *u64, out2: *u1, arg1: u1, arg2: u64, arg3: u64) void {
     @setRuntimeSafety(mode == .Debug);
-
-    const x1 = ((cast(
-        u128,
-        arg1,
-    ) + cast(
-        u128,
-        arg2,
-    )) + cast(
-        u128,
-        arg3,
-    ));
-    const x2 = cast(u64, (x1 & cast(
-        u128,
-        0xffffffffffffffff,
-    )));
-    const x3 = cast(
-        u1,
-        (x1 >> 64),
-    );
-    out1.* = x2;
-    out2.* = x3;
+    const x1 = cast(u128, arg1) + cast(u128, arg2) + cast(u128, arg3);
+    out1.* = cast(u64, x1 & cast(u128, 0xffffffffffffffff));
+    out2.* = cast(u1, x1 >> 64);
 }
 
 /// The function subborrowxU64 is a subtraction with borrow.
@@ -109,41 +85,12 @@ inline fn addcarryxU64(
 /// Output Bounds:
 ///   out1: [0x0 ~> 0xffffffffffffffff]
 ///   out2: [0x0 ~> 0x1]
-inline fn subborrowxU64(
-    out1: *u64,
-    out2: *u1,
-    arg1: u1,
-    arg2: u64,
-    arg3: u64,
-) void {
+inline fn subborrowxU64(out1: *u64, out2: *u1, arg1: u1, arg2: u64, arg3: u64) void {
     @setRuntimeSafety(mode == .Debug);
 
-    const x1 = ((cast(
-        i128,
-        arg2,
-    ) - cast(
-        i128,
-        arg1,
-    )) - cast(
-        i128,
-        arg3,
-    ));
-    const x2 = cast(
-        i1,
-        (x1 >> 64),
-    );
-    const x3 = cast(u64, (x1 & cast(
-        i128,
-        0xffffffffffffffff,
-    )));
-    out1.* = x3;
-    out2.* = cast(u1, (cast(
-        i2,
-        0x0,
-    ) - cast(
-        i2,
-        x2,
-    )));
+    const x1 = cast(i128, arg2) - cast(i128, arg1) - cast(i128, arg3);
+    out1.* = cast(u64, x1 & cast(i128, 0xffffffffffffffff));
+    out2.* = cast(u1, cast(i2, 0x0) - cast(i2, cast(i1, x1 >> 64)));
 }
 
 /// The function mulxU64 is a multiplication, returning the full double-width result.
