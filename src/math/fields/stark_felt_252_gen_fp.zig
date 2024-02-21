@@ -20,6 +20,9 @@
 const std = @import("std");
 const mode = @import("builtin").mode; // Checked arithmetic is disabled in non-debug modes to avoid side channels
 
+const INV: u64 = 18446744073709551615;
+const MAX = MontgomeryDomainFieldElement{ 32, 0, 0, 544 };
+
 inline fn cast(comptime DestType: type, target: anytype) DestType {
     @setEvalBranchQuota(10000);
     const target_type = @typeInfo(@TypeOf(target));
@@ -113,9 +116,75 @@ inline fn mulxU64(out1: *u64, out2: *u64, arg1: u64, arg2: u64) void {
 inline fn cmovznzU64(out1: *u64, arg1: u1, arg2: u64, arg3: u64) void {
     @setRuntimeSafety(mode == .Debug);
 
-    const x2 = cast(u64, cast(i128, cast(i1, cast(i2, 0x0) - cast(i2, ~(~arg1)))) & cast(i128, 0xffffffffffffffff));
-    out1.* = ((x2 & arg3) | ((~x2) & arg2));
+    const x2 = cast(
+        u64,
+        cast(
+            i128,
+            cast(i1, cast(i2, 0x0) - cast(i2, ~~arg1)),
+        ) & cast(i128, 0xffffffffffffffff),
+    );
+    out1.* = x2 & arg3 | (~x2 & arg2);
 }
+
+// inline fn subWithBorrow(
+//     lhs: *MontgomeryDomainFieldElement,
+//     rhs: MontgomeryDomainFieldElement,
+// ) bool {
+//     var borrow: u8 = 0;
+//     inline for (0..4) |i| borrow = sbb(&lhs[i], rhs[i], borrow);
+//     return borrow != 0;
+// }
+
+// inline fn cmp(
+//     lhs: MontgomeryDomainFieldElement,
+//     rhs: MontgomeryDomainFieldElement,
+// ) std.math.Order {
+//     var a_non_mont: NonMontgomeryDomainFieldElement = undefined;
+//     var b_non_mont: NonMontgomeryDomainFieldElement = undefined;
+//     fromMontgomery(&a_non_mont, lhs.fe);
+//     fromMontgomery(&b_non_mont, rhs.fe);
+//     _ = std.mem.reverse(u64, a_non_mont[0..]);
+//     _ = std.mem.reverse(u64, b_non_mont[0..]);
+//     return std.mem.order(
+//         u64,
+//         &a_non_mont,
+//         &b_non_mont,
+//     );
+// }
+
+// inline fn subtractModulus(out: *MontgomeryDomainFieldElement) void {
+//     const c = cmp(out.*, MAX);
+//     if (c == .eq or c == .gt) {
+//         subWithBorrow(out, MAX);
+//     }
+// }
+
+// pub fn mulTest(
+//     out: *MontgomeryDomainFieldElement,
+//     lhs: MontgomeryDomainFieldElement,
+//     rhs: MontgomeryDomainFieldElement,
+// ) void {
+//     var r = [_]u64{0} ** 4;
+
+//     inline for (0..4) |i| {
+//         var carry1: u64 = 0;
+//         r[0] = mac(r[0], lhs[0], rhs[i], &carry1);
+
+//         const k: u64 = r[0] * INV;
+//         var carry2: u64 = 0;
+//         macDiscard(r[0], k, MAX[0], &carry2);
+
+//         inline for (1..4) |j| {
+//             r[j] = macWithCarry(r[j], lhs[j], rhs[i], &carry1);
+//             r[j - 1] = macWithCarry(r[j], k, MAX[j], &carry2);
+//         }
+
+//         r[3] = carry1 + carry2;
+//     }
+
+//     out.* = r;
+//     subtractModulus(out);
+// }
 
 /// The function mul multiplies two field elements in the Montgomery domain.
 ///
@@ -1170,10 +1239,7 @@ pub fn toMontgomery(
 ///   arg1: [[0x0 ~> 0xffffffffffffffff], [0x0 ~> 0xffffffffffffffff], [0x0 ~> 0xffffffffffffffff], [0x0 ~> 0xffffffffffffffff]]
 /// Output Bounds:
 ///   out1: [0x0 ~> 0xffffffffffffffff]
-pub fn nonzero(
-    out1: *u64,
-    arg1: [4]u64,
-) void {
+pub fn nonzero(out1: *u64, arg1: [4]u64) void {
     @setRuntimeSafety(mode == .Debug);
     out1.* = arg1[0] | (arg1[1] | (arg1[2] | arg1[3]));
 }

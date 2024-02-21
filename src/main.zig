@@ -46,6 +46,7 @@ test "fields" {
     _ = @import("math/fields/fields.zig");
     _ = @import("math/fields/starknet.zig");
     _ = @import("math/fields/elliptic_curve.zig");
+    _ = @import("math/fields/arithmetic.zig");
 }
 
 test "curve" {
