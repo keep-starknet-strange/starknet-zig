@@ -1149,6 +1149,7 @@ test "Felt252: fromInt operations" {
     }
 }
 
-test "Felt252: canUseNoCarryMulOptimization should be true for Starknet Field" {
+test "Felt252: modulus properties checks" {
     try expect(comptime Felt252.canUseNoCarryMulOptimization());
+    try expect(comptime Felt252.modulusHasSpareBit());
 }

@@ -46,6 +46,17 @@ pub inline fn sbb(comptime T: type, a: *u64, b: u64, borrow: T) T {
     return @intCast(@intFromBool(tmp >> 64 == 0));
 }
 
+/// Sets a = a + b + carry, and returns the new carry.
+///
+/// This function performs the addition of two 64-bit integers `a` and `b` along with a carry `carry`.
+/// It updates the value at the memory address `a` to the sum of `a`, `b`, and `carry`, and returns
+/// the new carry resulting from the addition.
+pub inline fn adc(a: *u64, b: u64, carry: u64) u64 {
+    const tmp = @as(u128, a.*) + @as(u128, b) + @as(u128, carry);
+    a.* = @truncate(tmp);
+    return @intCast(tmp >> 64);
+}
+
 test "Multiply accumulate basic test" {
     var carry: u64 = 0;
     try expectEqual(@as(u64, 25), mac(5, 10, 2, &carry));
@@ -152,4 +163,28 @@ test "Subtraction with all zero" {
     var a: u64 = 0;
     try expectEqual(@as(u64, 0), sbb(u64, &a, 0, 0));
     try expectEqual(@as(u64, 0), a);
+}
+
+test "Add with carry with no carry" {
+    var a: u64 = 100;
+    try expectEqual(@as(u64, 0), adc(&a, 50, 0));
+    try expectEqual(@as(u64, 150), a);
+}
+
+test "Add with carry with carry" {
+    var a: u64 = std.math.maxInt(u64);
+    try expectEqual(@as(u64, 1), adc(&a, 1, 1));
+    try expectEqual(@as(u64, 1), a);
+}
+
+test "Add with carry with large numbers" {
+    var a: u64 = std.math.maxInt(u64);
+    try expectEqual(@as(u64, 1), adc(&a, std.math.maxInt(u64), 1));
+    try expectEqual(@as(u64, std.math.maxInt(u64)), a);
+}
+
+test "Add with carry with maximum value and no carry" {
+    var a: u64 = std.math.maxInt(u64);
+    try expectEqual(@as(u64, 0), adc(&a, 0, 0));
+    try expectEqual(@as(u64, std.math.maxInt(u64)), a);
 }

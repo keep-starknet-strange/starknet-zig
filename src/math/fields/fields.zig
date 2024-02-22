@@ -367,18 +367,35 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
         /// `true` if the optimization can be applied to the current modulus, `false` otherwise.
         pub fn canUseNoCarryMulOptimization() bool {
             comptime {
-                // Check if the highest bit of the modulus is zero
-                const top_bit_is_zero: bool = Modulus.fe[3] >> 63 == 0;
-
                 // Check if all remaining bits are one
-                var all_remaining_bits_are_one = Modulus.fe[3] == std.math.maxInt(u64) >> 1;
+                var all_remaining_bits_are_one = Modulus.fe[Limbs - 1] == std.math.maxInt(u64) >> 1;
                 for (1..4) |i| {
                     all_remaining_bits_are_one = all_remaining_bits_are_one and
-                        (Modulus.fe[4 - i - 1] == std.math.maxInt(u64));
+                        (Modulus.fe[Limbs - i - 1] == std.math.maxInt(u64));
                 }
 
                 // Return true if both conditions are met
-                return top_bit_is_zero and !all_remaining_bits_are_one;
+                return modulusHasSpareBit() and !all_remaining_bits_are_one;
+            }
+        }
+
+        /// Determines whether the modulus has a spare bit.
+        ///
+        /// This function checks if the highest bit of the modulus is zero, indicating that there is a spare bit available.
+        /// The spare bit condition is crucial for certain optimizations in modular arithmetic operations.
+        ///
+        /// # Returns
+        ///
+        /// `true` if the highest bit of the modulus is zero, indicating the presence of a spare bit; otherwise, `false`.
+        ///
+        /// # Comptime
+        ///
+        /// This function is evaluated at compile time to determine the presence of a spare bit in the modulus.
+        /// It ensures that the check is performed statically during compilation.
+        pub fn modulusHasSpareBit() bool {
+            comptime {
+                // Check if the highest bit of the modulus is zero
+                return Modulus.fe[Limbs - 1] >> 63 == 0;
             }
         }
 
@@ -510,13 +527,98 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
             return Self.fromInt(u256, @bitCast(result));
         }
 
-        /// Calculate the square of a field element.
+        /// Computes the square of a finite field element.
         ///
-        /// Computes the square of the current field element.
-        pub fn square(self: Self) Self {
-            var ret: F.MontgomeryDomainFieldElement = undefined;
-            F.square(&ret, self.fe);
-            return .{ .fe = ret };
+        /// This function computes the square of the given finite field element using the `squareAssign` method
+        /// and returns the result as a new field element.
+        ///
+        /// # Arguments
+        ///
+        /// - `self`: A pointer to the finite field element to be squared.
+        ///
+        /// # Returns
+        ///
+        /// A new finite field element representing the square of the input element.
+        pub fn square(self: *const Self) Self {
+            // Dereference the pointer to obtain the actual field element
+            var a = self.*;
+            // Call the `squareAssign` method to compute the square in place
+            a.squareAssign();
+            // Return the result
+            return a;
+        }
+
+        /// Computes the square of the current finite field element in place.
+        ///
+        /// This function calculates the square of the current finite field element and updates the value in place.
+        ///
+        /// It involves various steps including intermediate multiplication, carry propagation, squaring, and Montgomery reduction.
+        /// The algorithm efficiently utilizes inline loops for performance optimization.
+        /// Additionally, it supports modulus subtraction if the modulus has a spare bit.
+        pub fn squareAssign(self: *Self) void {
+            const MulBuffer = struct {
+                const S = @This();
+
+                /// A tuple to store intermediate multiplication results.
+                buf: std.meta.Tuple(&.{ [Limbs]u64, [Limbs]u64 }) =
+                    .{ [_]u64{0} ** Limbs, [_]u64{0} ** Limbs },
+
+                /// Retrieves a pointer to the buffer element at the specified index.
+                fn getBuf(s: *S, index: usize) *u64 {
+                    return if (index < Limbs)
+                        &s.buf[0][index]
+                    else
+                        &s.buf[1][index - Limbs];
+                }
+            };
+
+            var r: MulBuffer = .{};
+            var carry: u64 = 0;
+
+            // Perform multiplication
+            inline for (0..Limbs - 1) |i| {
+                inline for (i + 1..Limbs) |j| {
+                    r.getBuf(i + j).* = arithmetic.macWithCarry(r.getBuf(i + j).*, self.fe[i], self.fe[j], &carry);
+                }
+                r.buf[1][i] = carry;
+                carry = 0;
+            }
+
+            // Adjust carry for the last limb
+            r.buf[1][Limbs - 1] = r.buf[1][Limbs - 2] >> 63;
+
+            // Propagate carries
+            inline for (2..2 * Limbs - 1) |i|
+                r.getBuf(2 * Limbs - i).* = (r.getBuf(2 * Limbs - i).* << 1) |
+                    (r.getBuf(2 * Limbs - (i + 1)).* >> 63);
+            r.buf[0][1] <<= 1;
+
+            // Perform squaring
+            inline for (0..4) |i| {
+                r.getBuf(2 * i).* = arithmetic.macWithCarry(r.getBuf(2 * i).*, self.fe[i], self.fe[i], &carry);
+                carry = arithmetic.adc(r.getBuf(2 * i + 1), 0, carry);
+            }
+
+            // Montgomery reduction
+            var carry2: u64 = 0;
+
+            // Reduce and update buffer
+            inline for (0..Limbs) |i| {
+                const k: u64 = r.buf[0][i] *% Inv;
+                var carry1: u64 = 0;
+                arithmetic.macDiscard(r.buf[0][i], k, Modulus.fe[0], &carry1);
+
+                inline for (1..Limbs) |j|
+                    r.getBuf(j + i).* = arithmetic.macWithCarry(r.getBuf(j + i).*, k, Modulus.fe[j], &carry1);
+
+                carry2 = arithmetic.adc(&r.buf[1][i], carry1, carry2);
+            }
+
+            // Copy result back to the field element
+            @memcpy(&self.fe, &r.buf[1]);
+
+            // Perform modulus subtraction if needed
+            if (comptime Self.modulusHasSpareBit()) F.subtractModulus(&self.fe);
         }
 
         /// Raise a field element to a power of 2.
