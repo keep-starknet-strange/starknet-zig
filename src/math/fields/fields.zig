@@ -594,7 +594,7 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
             r.buf[0][1] <<= 1;
 
             // Perform squaring
-            inline for (0..4) |i| {
+            inline for (0..Limbs) |i| {
                 r.getBuf(2 * i).* = arithmetic.macWithCarry(r.getBuf(2 * i).*, self.fe[i], self.fe[i], &carry);
                 carry = arithmetic.adc(r.getBuf(2 * i + 1), 0, carry);
             }
