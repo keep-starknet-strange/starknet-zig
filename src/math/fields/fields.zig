@@ -599,13 +599,13 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
             // Reduce and update buffer
             inline for (0..Limbs) |i| {
                 const k: u64 = r.buf[0][i] *% Inv;
-                var carry1: u64 = 0;
-                arithmetic.macDiscard(r.buf[0][i], k, Modulus.fe[0], &carry1);
+                carry = 0;
+                arithmetic.macDiscard(r.buf[0][i], k, Modulus.fe[0], &carry);
 
                 inline for (1..Limbs) |j|
-                    r.getBuf(j + i).* = arithmetic.macWithCarry(r.getBuf(j + i).*, k, Modulus.fe[j], &carry1);
+                    r.getBuf(j + i).* = arithmetic.macWithCarry(r.getBuf(j + i).*, k, Modulus.fe[j], &carry);
 
-                carry2 = arithmetic.adc(&r.buf[1][i], carry1, carry2);
+                carry2 = arithmetic.adc(&r.buf[1][i], carry, carry2);
             }
 
             // Copy result back to the field element
