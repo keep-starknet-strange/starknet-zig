@@ -4,16 +4,26 @@ const ArrayList = std.ArrayList;
 
 const tonelliShanks = @import("./helper.zig").tonelliShanks;
 const extendedGCD = @import("./helper.zig").extendedGCD;
+const arithmetic = @import("./arithmetic.zig");
 
 pub const ModSqrtError = error{
     InvalidInput,
 };
+
+// // Modulus in non Montgomery format
+// const MODULUS_NON_MONT = [4]u64{ 1, 0, 0, 576460752303423505 };
 
 /// Represents a finite field element.
 pub fn Field(comptime F: type, comptime modulo: u256) type {
     return struct {
         const Self = @This();
 
+        // Reprensentation of - modulus^{-1} mod 2^{64}
+        pub const Inv: u64 = 0xffffffffffffffff;
+        // One before the modulus
+        pub const MaxField: Self = .{ .fe = .{ 32, 0, 0, 544 } };
+        // Modulus in non Montgomery format
+        pub const Modulus: Self = .{ .fe = .{ 1, 0, 0, 576460752303423505 } };
         /// Number of bits needed to represent a field element with the given modulo.
         pub const BitSize = @bitSizeOf(u256) - @clz(modulo);
         /// Number of bytes required to store a field element.
@@ -345,12 +355,39 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
             return Self.fromInt(u256, @intCast((s * o) % m));
         }
 
-        /// Multiply two field elements.
-        ///
-        /// Multiplies the current field element by another field element.
-        pub fn mul(self: Self, rhs: Self) Self {
+        pub fn mul(self: *const Self, rhs: Self) Self {
+            var a = self.*;
+            a.mulAssign(&rhs);
+            return a;
+        }
+
+        pub fn mulAssign(self: *Self, rhs: *const Self) void {
+            var r = [_]u64{0} ** 4;
+
+            inline for (0..4) |i| {
+                var carry1: u64 = 0;
+                r[0] = arithmetic.mac(r[0], self.fe[0], rhs.fe[i], &carry1);
+
+                const k: u64 = r[0] *% comptime Self.Inv;
+                var carry2: u64 = 0;
+                arithmetic.macDiscard(r[0], k, comptime Self.Modulus.fe[0], &carry2);
+
+                inline for (1..4) |j| {
+                    r[j] = arithmetic.macWithCarry(r[j], self.fe[j], rhs.fe[i], &carry1);
+                    r[j - 1] = arithmetic.macWithCarry(r[j], k, Self.Modulus.fe[j], &carry2);
+                }
+
+                r[3] = carry1 + carry2;
+            }
+
+            self.*.fe = r;
+
+            F.subtractModulus(&self.fe);
+        }
+
+        pub fn mulTest(self: Self, rhs: Self) Self {
             var ret: F.MontgomeryDomainFieldElement = undefined;
-            F.mul(&ret, self.fe, rhs.fe);
+            F.mulTest(&ret, self.fe, rhs.fe);
             return .{ .fe = ret };
         }
 
@@ -430,7 +467,7 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
             var exp = exponent;
             var base = self;
 
-            while (exp > 0) : (exp = exp / 2) {
+            while (exp > 0) : (exp /= 2) {
                 if (exp & 1 == 1) res = res.mul(base);
                 base = base.mul(base);
             }
@@ -546,15 +583,15 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
             // a, then a|p = 0)
             // Returns 1 if a has a square root modulo
             // p, -1 otherwise.
-            const ls = a.pow((Modulo - 1) / 2);
+            const ls = a.pow(comptime QMinOneDiv2);
 
-            const modulo_minus_one = comptime fromInt(u256, Modulo - 1);
-            return if (ls.eql(modulo_minus_one))
-                -1
-            else if (ls.isZero())
-                0
-            else
-                1;
+            std.debug.print("legendre = {any}\n", .{ls.toInt()});
+
+            if (ls.toInt() == comptime Modulo - 1) return -1;
+
+            if (ls.isZero()) return 0;
+
+            return 1;
         }
 
         /// Compare two field elements and return the ordering result.
@@ -572,11 +609,7 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
             F.fromMontgomery(&b_non_mont, rhs.fe);
             _ = std.mem.reverse(u64, a_non_mont[0..]);
             _ = std.mem.reverse(u64, b_non_mont[0..]);
-            return std.mem.order(
-                u64,
-                &a_non_mont,
-                &b_non_mont,
-            );
+            return std.mem.order(u64, &a_non_mont, &b_non_mont);
         }
 
         /// Check if this field element is less than the rhs.

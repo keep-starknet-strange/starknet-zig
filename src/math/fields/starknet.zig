@@ -1064,6 +1064,7 @@ test "Felt252: arithmetic multiplication operations" {
         const c = Felt252.rand(random);
         const zero = Felt252.zero();
         const one = Felt252.one();
+        const rnd_u8 = random.int(u8);
 
         // Associativity
         try expect(a.mul(b).mul(c).eql(a.mul(c.mul(b))));
@@ -1107,6 +1108,19 @@ test "Felt252: arithmetic multiplication operations" {
         try expect(c.add(a).square().eql(
             c.square().add(a.square()).add(c.mul(a).double()),
         ));
+
+        // Power
+        var a_100 = one;
+        var b_100 = one;
+        var c_100 = one;
+        for (0..rnd_u8) |_| {
+            a_100 = a_100.mul(a);
+            b_100 = b_100.mul(b);
+            c_100 = c_100.mul(c);
+        }
+        try expect(a.pow(rnd_u8).eql(a_100));
+        try expect(b.pow(rnd_u8).eql(b_100));
+        try expect(c.pow(rnd_u8).eql(c_100));
     }
 }
 

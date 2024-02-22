@@ -5,7 +5,7 @@ const expectEqual = std.testing.expectEqual;
 /// Calculates the result of a + b * c:
 /// - returning the lower 64 bits of the result
 /// - setting `carry` to the upper 64 bits.
-inline fn mac(a: u64, b: u64, c: u64, carry: *u64) u64 {
+pub inline fn mac(a: u64, b: u64, c: u64, carry: *u64) u64 {
     const tmp = @as(u128, a) + @as(u128, b) * @as(u128, c);
     carry.* = @intCast(tmp >> 64);
     return @truncate(tmp);
@@ -17,7 +17,7 @@ inline fn mac(a: u64, b: u64, c: u64, carry: *u64) u64 {
 ///
 /// This function performs the same calculation as the `mac` function but discards the result,
 /// making it suitable for cases where only the carry value is needed.
-inline fn macDiscard(a: u64, b: u64, c: u64, carry: *u64) void {
+pub inline fn macDiscard(a: u64, b: u64, c: u64, carry: *u64) void {
     const tmp = @as(u128, a) + @as(u128, b) * @as(u128, c);
     carry.* = @intCast(tmp >> 64);
 }
@@ -25,7 +25,7 @@ inline fn macDiscard(a: u64, b: u64, c: u64, carry: *u64) void {
 /// Calculates the result of a + b * c + carry:
 /// - returning the lower 64 bits of the result
 /// - setting `carry` to the upper 64 bits.
-inline fn macWithCarry(a: u64, b: u64, c: u64, carry: *u64) u64 {
+pub inline fn macWithCarry(a: u64, b: u64, c: u64, carry: *u64) u64 {
     const tmp = @as(u128, a) + @as(u128, b) * @as(u128, c) + @as(u128, carry.*);
     carry.* = @intCast(tmp >> 64);
     return @truncate(tmp);
@@ -39,7 +39,7 @@ inline fn macWithCarry(a: u64, b: u64, c: u64, carry: *u64) u64 {
 ///
 /// It returns the result of the subtraction as the lower 64 bits, and sets `borrow` to 1 if there
 /// was a borrow during the subtraction (i.e., if the result would have been negative), and 0 otherwise.
-inline fn sbb(comptime T: type, a: *u64, b: u64, borrow: T) T {
+pub inline fn sbb(comptime T: type, a: *u64, b: u64, borrow: T) T {
     const tmp = (@as(u128, 1) << 64) + @as(u128, a.*) -
         @as(u128, b) - @as(u128, @intCast(borrow));
     a.* = @truncate(tmp);
