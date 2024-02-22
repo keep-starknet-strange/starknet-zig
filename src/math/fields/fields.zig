@@ -442,10 +442,10 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
         /// For another reference implementation, see [arkworks-rs/algebra](https://github.com/arkworks-rs/algebra/blob/3a6156785e12eeb9083a7a402ac037de01f6c069/ff/src/fields/models/fp/montgomery_backend.rs#L151)
         pub fn mulAssign(self: *Self, rhs: *const Self) void {
             // Initialize the result array
-            var r = [_]u64{0} ** 4;
+            var r = [_]u64{0} ** Limbs;
 
             // Iterate over the digits of the right-hand side operand
-            inline for (0..4) |i| {
+            inline for (0..Limbs) |i| {
                 // Perform the first multiplication and accumulation
                 var carry1: u64 = 0;
                 r[0] = arithmetic.mac(r[0], self.fe[0], rhs.fe[i], &carry1);
@@ -456,26 +456,20 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
                 arithmetic.macDiscard(r[0], k, comptime Self.Modulus.fe[0], &carry2);
 
                 // Iterate over the remaining digits and perform the multiplications and accumulations
-                inline for (1..4) |j| {
+                inline for (1..Limbs) |j| {
                     r[j] = arithmetic.macWithCarry(r[j], self.fe[j], rhs.fe[i], &carry1);
                     r[j - 1] = arithmetic.macWithCarry(r[j], k, Self.Modulus.fe[j], &carry2);
                 }
 
                 // Add the final carries
-                r[3] = carry1 + carry2;
+                r[Limbs - 1] = carry1 + carry2;
             }
 
             // Store the result back into the original object
-            self.*.fe = r;
+            @memcpy(&self.fe, &r);
 
             // Perform modulus subtraction if needed
             F.subtractModulus(&self.fe);
-        }
-
-        pub fn mulTest(self: Self, rhs: Self) Self {
-            var ret: F.MontgomeryDomainFieldElement = undefined;
-            F.mulTest(&ret, self.fe, rhs.fe);
-            return .{ .fe = ret };
         }
 
         /// Multiply a field element by 5.
