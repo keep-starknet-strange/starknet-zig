@@ -4,16 +4,26 @@ const ArrayList = std.ArrayList;
 
 const tonelliShanks = @import("./helper.zig").tonelliShanks;
 const extendedGCD = @import("./helper.zig").extendedGCD;
+const arithmetic = @import("./arithmetic.zig");
 
 pub const ModSqrtError = error{
     InvalidInput,
 };
+
+// // Modulus in non Montgomery format
+// const MODULUS_NON_MONT = [4]u64{ 1, 0, 0, 576460752303423505 };
 
 /// Represents a finite field element.
 pub fn Field(comptime F: type, comptime modulo: u256) type {
     return struct {
         const Self = @This();
 
+        // Reprensentation of - modulus^{-1} mod 2^{64}
+        pub const Inv: u64 = 0xffffffffffffffff;
+        // One before the modulus
+        pub const MaxField: Self = .{ .fe = .{ 32, 0, 0, 544 } };
+        // Modulus in non Montgomery format
+        pub const Modulus: Self = .{ .fe = .{ 1, 0, 0, 576460752303423505 } };
         /// Number of bits needed to represent a field element with the given modulo.
         pub const BitSize = @bitSizeOf(u256) - @clz(modulo);
         /// Number of bytes required to store a field element.
@@ -345,12 +355,107 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
             return Self.fromInt(u256, @intCast((s * o) % m));
         }
 
-        /// Multiply two field elements.
+        /// Determines whether the current modulus allows for a specific optimization in modular multiplication.
         ///
-        /// Multiplies the current field element by another field element.
-        pub fn mul(self: Self, rhs: Self) Self {
+        /// This function checks if the highest bit of the modulus is zero and not all of the remaining bits are set,
+        /// which is a condition required for a specific optimization in modular multiplication.
+        ///
+        /// The optimization aims to reduce the number of additions needed in CIOS Montgomery multiplication,
+        /// resulting in a significant speed improvement for most moduli.
+        ///
+        /// # Returns:
+        /// `true` if the optimization can be applied to the current modulus, `false` otherwise.
+        pub fn canUseNoCarryMulOptimization() bool {
+            comptime {
+                // Check if the highest bit of the modulus is zero
+                const top_bit_is_zero: bool = Modulus.fe[3] >> 63 == 0;
+
+                // Check if all remaining bits are one
+                var all_remaining_bits_are_one = Modulus.fe[3] == std.math.maxInt(u64) >> 1;
+                for (1..4) |i| {
+                    all_remaining_bits_are_one = all_remaining_bits_are_one and
+                        (Modulus.fe[4 - i - 1] == std.math.maxInt(u64));
+                }
+
+                // Return true if both conditions are met
+                return top_bit_is_zero and !all_remaining_bits_are_one;
+            }
+        }
+
+        /// Performs multiplication of two field elements and returns the result.
+        ///
+        /// This function takes two pointers to field elements (`self` and `rhs`),
+        /// multiplies them together, and returns the result as a new field element.
+        ///
+        /// # Arguments:
+        /// - `self`: A pointer to the first field element.
+        /// - `rhs`: A pointer to the second field element.
+        ///
+        /// # Returns:
+        /// A new field element representing the result of the multiplication.
+        pub fn mul(self: *const Self, rhs: *const Self) Self {
+            // Dereference the pointer to obtain the actual field element
+            var a = self.*;
+            // Call the `mulAssign` method to perform the multiplication in place
+            a.mulAssign(rhs);
+            // Return the result
+            return a;
+        }
+
+        /// Performs modular multiplication using Montgomery multiplication algorithm.
+        ///
+        /// Montgomery multiplication is a method used to compute modular products efficiently
+        /// without expensive divisions, particularly beneficial for cryptographic protocols
+        /// involving large moduli. The function takes two integers `a` and `b` and computes
+        /// their modular product with respect to a given modulus `N`. The function assumes that
+        /// the inputs `a`, `b`, and `N` are all in Montgomery form.
+        ///
+        /// The Montgomery form of an integer `a` with respect to a chosen radix `R` is `a * R mod N`.
+        /// This representation allows for faster modular products, where `R` is carefully chosen
+        /// such that `gcd(R, N) = 1`.
+        ///
+        /// The algorithm alternates between the multiplication and reduction steps involved in
+        /// Montgomery modular multiplication, rather than carrying out full multiplication followed by
+        /// reduction.
+        ///
+        /// Additional "no-carry optimization" is implemented, as outlined [here](https://hackmd.io/@gnark/modular_multiplication)
+        /// as modulus has (a) a non-zero most significant bit, and (b) at least one
+        /// zero bit in the rest of the modulus.
+        pub fn mulAssign(self: *Self, rhs: *const Self) void {
+            // Initialize the result array
+            var r = [_]u64{0} ** 4;
+
+            // Iterate over the digits of the right-hand side operand
+            inline for (0..4) |i| {
+                // Perform the first multiplication and accumulation
+                var carry1: u64 = 0;
+                r[0] = arithmetic.mac(r[0], self.fe[0], rhs.fe[i], &carry1);
+
+                // Compute the Montgomery factor k and perform the corresponding multiplication and reduction
+                const k: u64 = r[0] *% comptime Self.Inv;
+                var carry2: u64 = 0;
+                arithmetic.macDiscard(r[0], k, comptime Self.Modulus.fe[0], &carry2);
+
+                // Iterate over the remaining digits and perform the multiplications and accumulations
+                inline for (1..4) |j| {
+                    r[j] = arithmetic.macWithCarry(r[j], self.fe[j], rhs.fe[i], &carry1);
+                    r[j - 1] = arithmetic.macWithCarry(r[j], k, Self.Modulus.fe[j], &carry2);
+                }
+
+                // Add the final carries
+                r[3] = carry1 + carry2;
+            }
+
+            // Store the result back into the original object
+            self.*.fe = r;
+
+            // Perform modulus subtraction if needed
+            F.subtractModulus(&self.fe);
+        }
+
+        pub fn mulTest(self: Self, rhs: Self) Self {
             var ret: F.MontgomeryDomainFieldElement = undefined;
-            F.mul(&ret, self.fe, rhs.fe);
+            F.mulTest(&ret, self.fe, rhs.fe);
             return .{ .fe = ret };
         }
 
@@ -418,7 +523,7 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
         /// The result is equivalent to repeatedly squaring the field element.
         pub fn pow2(self: Self, comptime exponent: u8) Self {
             var ret = self;
-            inline for (exponent) |_| ret = ret.mul(ret);
+            inline for (exponent) |_| ret = ret.mul(&ret);
             return ret;
         }
 
@@ -430,9 +535,9 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
             var exp = exponent;
             var base = self;
 
-            while (exp > 0) : (exp = exp / 2) {
-                if (exp & 1 == 1) res = res.mul(base);
-                base = base.mul(base);
+            while (exp > 0) : (exp /= 2) {
+                if (exp & 1 == 1) res = res.mul(&base);
+                base = base.mul(&base);
             }
             return res;
         }
@@ -451,12 +556,12 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
             var acc = one();
             for (0..in.len) |i| {
                 out[i] = acc;
-                acc = acc.mul(in[i]);
+                acc = acc.mul(&in[i]);
             }
             acc = acc.inv() orelse return error.CantInvertZeroElement;
             for (0..in.len) |i| {
-                out[in.len - i - 1] = out[in.len - i - 1].mul(acc);
-                acc = acc.mul(in[in.len - i - 1]);
+                out[in.len - i - 1] = out[in.len - i - 1].mul(&acc);
+                acc = acc.mul(&in[in.len - i - 1]);
             }
         }
 
@@ -497,7 +602,7 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
         ///
         /// Divides the current field element by another field element.
         pub fn div(self: Self, den: Self) !Self {
-            return self.mul(den.inv() orelse return error.DivisionByZero);
+            return self.mul(&(den.inv() orelse return error.DivisionByZero));
         }
 
         /// Check if two field elements are equal.
@@ -546,15 +651,13 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
             // a, then a|p = 0)
             // Returns 1 if a has a square root modulo
             // p, -1 otherwise.
-            const ls = a.pow((Modulo - 1) / 2);
+            const ls = a.pow(comptime QMinOneDiv2);
 
-            const modulo_minus_one = comptime fromInt(u256, Modulo - 1);
-            return if (ls.eql(modulo_minus_one))
-                -1
-            else if (ls.isZero())
-                0
-            else
-                1;
+            if (ls.toInt() == comptime Modulo - 1) return -1;
+
+            if (ls.isZero()) return 0;
+
+            return 1;
         }
 
         /// Compare two field elements and return the ordering result.
@@ -572,11 +675,7 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
             F.fromMontgomery(&b_non_mont, rhs.fe);
             _ = std.mem.reverse(u64, a_non_mont[0..]);
             _ = std.mem.reverse(u64, b_non_mont[0..]);
-            return std.mem.order(
-                u64,
-                &a_non_mont,
-                &b_non_mont,
-            );
+            return std.mem.order(u64, &a_non_mont, &b_non_mont);
         }
 
         /// Check if this field element is less than the rhs.

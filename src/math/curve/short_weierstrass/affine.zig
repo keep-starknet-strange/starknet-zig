@@ -205,8 +205,8 @@ pub const AffinePoint = struct {
         if (self.infinity) return true;
 
         // Calculate the right-hand side of the elliptic curve equation: x^3 + ax + b.
-        const rhs = self.x.square().mul(self.x).add(
-            CurveParams.ALPHA.mul(self.x),
+        const rhs = self.x.square().mul(&self.x).add(
+            CurveParams.ALPHA.mul(&self.x),
         ).add(CurveParams.BETA);
 
         // Check if the calculated right-hand side is equal to the square of the y-coordinate.
@@ -352,7 +352,7 @@ pub const AffinePoint = struct {
         const result_x = lambda.square().sub(self.x).sub(rhs.x);
 
         // Compute y-coordinate of the resulting point: lambda * (x1 - x3) - y1
-        self.y = lambda.mul(self.x.sub(result_x)).sub(self.y);
+        self.y = lambda.mul(&self.x.sub(result_x)).sub(self.y);
 
         // Update the x-coordinate of this point to the computed x-coordinate of the resulting point.
         self.x = result_x;
@@ -392,18 +392,18 @@ pub const AffinePoint = struct {
 
         // l = (3x^2+a)/2y with a=1 from stark curve
         const lambda = Felt252.three().mul(
-            self.x.mul(self.x),
+            &self.x.mul(&self.x),
         ).add(
             Felt252.one(),
         ).mul(
-            Felt252.two().mul(self.y).inv().?,
+            &Felt252.two().mul(&self.y).inv().?,
         );
 
         // Compute the new x-coordinate of the point after doubling: lambda^2 - 2x
-        const result_x = lambda.mul(lambda).sub(self.x).sub(self.x);
+        const result_x = lambda.mul(&lambda).sub(self.x).sub(self.x);
 
         // Compute the new y-coordinate of the point after doubling: lambda * (x - result_x) - y
-        self.y = lambda.mul(self.x.sub(result_x)).sub(self.y);
+        self.y = lambda.mul(&self.x.sub(result_x)).sub(self.y);
 
         // Update the coordinates of the point with the new values
         self.x = result_x;
@@ -435,7 +435,7 @@ pub const AffinePoint = struct {
     pub fn fromX(x: Felt252) EcPointError!Self {
         return .{
             .x = x,
-            .y = x.mul(x).mul(x).add(CurveParams.ALPHA.mul(x)).add(CurveParams.BETA).sqrt() orelse
+            .y = x.mul(&x).mul(&x).add(CurveParams.ALPHA.mul(&x)).add(CurveParams.BETA).sqrt() orelse
                 return EcPointError.SqrtNotExist,
             .infinity = false,
         };
@@ -493,8 +493,8 @@ pub const AffinePoint = struct {
 
         // Create and return the resulting affine point.
         return .{
-            .x = p.x.mul(zinv),
-            .y = p.y.mul(zinv),
+            .x = p.x.mul(&zinv),
+            .y = p.y.mul(&zinv),
             .infinity = false,
         };
     }
@@ -526,8 +526,8 @@ pub const AffinePoint = struct {
 
         // Create and return the resulting affine point.
         return .{
-            .x = p.x.mul(zinv_squared),
-            .y = p.y.mul(zinv_squared).mul(zinv),
+            .x = p.x.mul(&zinv_squared),
+            .y = p.y.mul(&zinv_squared).mul(&zinv),
             .infinity = false,
         };
     }
@@ -1259,7 +1259,7 @@ test "AffinePoint: fuzzing testing of arithmetic multiplication operations" {
         ));
 
         // Inverses
-        try expect((try a.mulByScalar(&b.inv().?.mul(b))).eql(
+        try expect((try a.mulByScalar(&b.inv().?.mul(&b))).eql(
             a,
         ));
     }
