@@ -331,18 +331,18 @@ test "Felt252 sub" {
 }
 
 test "Felt252 mul" {
-    try expect(Felt252.zero().mul(Felt252.zero()).isZero());
-    try expect(Felt252.one().mul(Felt252.one()).isOne());
+    try expect(Felt252.zero().mul(&Felt252.zero()).isZero());
+    try expect(Felt252.one().mul(&Felt252.one()).isOne());
     try expectEqual(
         @as(u256, 0x32),
-        Felt252.fromInt(u8, 10).mul(Felt252.fromInt(u8, 5)).toInt(),
+        Felt252.fromInt(u8, 10).mul(&Felt252.fromInt(u8, 5)).toInt(),
     );
     try expectEqual(
         @as(
             u256,
             0x7fffffffffffbd0ffffffffffffffffffffffffffffffffffffffffffffffbf,
         ),
-        Felt252.fromInt(u256, std.math.maxInt(u256)).mul(Felt252.two()).toInt(),
+        Felt252.fromInt(u256, std.math.maxInt(u256)).mul(&Felt252.two()).toInt(),
     );
 }
 
@@ -1067,46 +1067,46 @@ test "Felt252: arithmetic multiplication operations" {
         const rnd_u8 = random.int(u8);
 
         // Associativity
-        try expect(a.mul(b).mul(c).eql(a.mul(c.mul(b))));
+        try expect(a.mul(&b).mul(&c).eql(a.mul(&c.mul(&b))));
 
         // Commutativity
-        try expect(a.mul(b).eql(b.mul(a)));
+        try expect(a.mul(&b).eql(b.mul(&a)));
 
         // Identity
-        try expect(one.mul(a).eql(a));
-        try expect(one.mul(b).eql(b));
-        try expect(one.mul(c).eql(c));
+        try expect(one.mul(&a).eql(a));
+        try expect(one.mul(&b).eql(b));
+        try expect(one.mul(&c).eql(c));
 
-        try expect(zero.mul(a).eql(zero));
-        try expect(zero.mul(b).eql(zero));
-        try expect(zero.mul(c).eql(zero));
+        try expect(zero.mul(&a).eql(zero));
+        try expect(zero.mul(&b).eql(zero));
+        try expect(zero.mul(&c).eql(zero));
 
         // Inverses
-        try expect(a.mul(a.inv().?).eql(one));
-        try expect(b.mul(b.inv().?).eql(one));
-        try expect(c.mul(c.inv().?).eql(one));
+        try expect(a.mul(&a.inv().?).eql(one));
+        try expect(b.mul(&b.inv().?).eql(one));
+        try expect(c.mul(&c.inv().?).eql(one));
 
         // Associativity and commutativity simultaneously
-        try expect(a.mul(b).mul(c).eql(a.mul(c).mul(b)));
-        try expect(a.mul(c).mul(b).eql(b.mul(c).mul((a))));
+        try expect(a.mul(&b).mul(&c).eql(a.mul(&c).mul(&b)));
+        try expect(a.mul(&c).mul(&b).eql(b.mul(&c).mul(&(a))));
 
         // Squaring
-        try expect(a.mul(a).eql(a.square()));
-        try expect(b.mul(b).eql(b.square()));
-        try expect(c.mul(c).eql(c.square()));
+        try expect(a.mul(&a).eql(a.square()));
+        try expect(b.mul(&b).eql(b.square()));
+        try expect(c.mul(&c).eql(c.square()));
 
         // Distributivity
-        try expect(a.mul(b.add(c)).eql(a.mul(b).add(a.mul(c))));
-        try expect(b.mul(a.add(c)).eql(b.mul(a).add(b.mul(c))));
-        try expect(c.mul(a.add(b)).eql(c.mul(a).add(c.mul(b))));
+        try expect(a.mul(&b.add(c)).eql(a.mul(&b).add(a.mul(&c))));
+        try expect(b.mul(&a.add(c)).eql(b.mul(&a).add(b.mul(&c))));
+        try expect(c.mul(&a.add(b)).eql(c.mul(&a).add(c.mul(&b))));
         try expect(a.add(b).square().eql(
-            a.square().add(b.square()).add(a.mul(b).double()),
+            a.square().add(b.square()).add(a.mul(&b).double()),
         ));
         try expect(b.add(c).square().eql(
-            b.square().add(c.square()).add(b.mul(c).double()),
+            b.square().add(c.square()).add(b.mul(&c).double()),
         ));
         try expect(c.add(a).square().eql(
-            c.square().add(a.square()).add(c.mul(a).double()),
+            c.square().add(a.square()).add(c.mul(&a).double()),
         ));
 
         // Power
@@ -1114,9 +1114,9 @@ test "Felt252: arithmetic multiplication operations" {
         var b_100 = one;
         var c_100 = one;
         for (0..rnd_u8) |_| {
-            a_100 = a_100.mul(a);
-            b_100 = b_100.mul(b);
-            c_100 = c_100.mul(c);
+            a_100 = a_100.mul(&a);
+            b_100 = b_100.mul(&b);
+            c_100 = c_100.mul(&c);
         }
         try expect(a.pow(rnd_u8).eql(a_100));
         try expect(b.pow(rnd_u8).eql(b_100));

@@ -160,8 +160,8 @@ pub const ProjectivePointJacobian = struct {
 
         // Check if X₁ * Z₂^2 equals X₂ * Z₁^2.
         // Check if Y₁ * Z₂^3 equals Y₂ * Z₁^3.
-        return self.x.mul(z2z2).eql(rhs.x.mul(z1z1)) and
-            self.y.mul(z2z2.mul(rhs.z)).eql(rhs.y.mul(z1z1.mul(self.z)));
+        return self.x.mul(&z2z2).eql(rhs.x.mul(&z1z1)) and
+            self.y.mul(&z2z2.mul(&rhs.z)).eql(rhs.y.mul(&z1z1.mul(&self.z)));
     }
 
     /// Checks if this projective point lies on the elliptic curve.
@@ -260,7 +260,7 @@ pub const ProjectivePointJacobian = struct {
         const s = self.x.add(yy).square().sub(xx).sub(yyyy).double();
 
         // Calculate 3*XX+a*ZZ^2
-        const m = xx.double().add(xx).add(CurveParams.ALPHA.mul(zz.square()));
+        const m = xx.double().add(xx).add(CurveParams.ALPHA.mul(&zz.square()));
 
         // Calculate T = M^2-2*S
         // X3 = T
@@ -268,10 +268,10 @@ pub const ProjectivePointJacobian = struct {
 
         // Calculate Z3 = 2*Y1*Z1
         // This is a faster way to compute (Y1+Z1)^2-YY-ZZ
-        self.z = self.z.mul(self.y).double();
+        self.z = self.z.mul(&self.y).double();
 
         // Calculate Y3 = M*(S-X3)-8*YYYY
-        self.y = s.sub(self.x).mul(m).sub(yyyy.double().double().double());
+        self.y = s.sub(self.x).mul(&m).sub(yyyy.double().double().double());
     }
 
     /// Adds another projective point to this point and returns the result.
@@ -449,10 +449,10 @@ pub const ProjectivePointJacobian = struct {
         const z1z1 = self.z.square();
 
         // U2 = X2*Z1Z1
-        const u_2 = rhs.x.mul(z1z1);
+        const u_2 = rhs.x.mul(&z1z1);
 
         // S2 = Y2*Z1*Z1Z1
-        const s2 = self.z.mul(rhs.y).mul(z1z1);
+        const s2 = self.z.mul(&rhs.y).mul(&z1z1);
 
         if (self.x.eql(u_2)) {
             if (self.y.eql(s2)) {
@@ -475,23 +475,23 @@ pub const ProjectivePointJacobian = struct {
         const i = hh.double().double();
 
         // J = -H*I
-        const j = h.neg().mul(i);
+        const j = h.neg().mul(&i);
 
         // r = 2*(S2-Y1)
         const r = s2.sub(self.y).double();
 
         // V = X1*I
-        const v = self.x.mul(i);
+        const v = self.x.mul(&i);
 
         // X3 = r^2 + J - 2*V
         self.x = r.square().add(j).sub(v.double());
 
         // Y3 = r*(V-X3) + 2*Y1*J
-        self.y = r.mul(v.sub(self.x)).add(self.y.double().mul(j));
+        self.y = r.mul(&v.sub(self.x)).add(self.y.double().mul(&j));
 
         // Z3 = 2 * Z1 * H;
         // Can alternatively be computed as (Z1+H)^2-Z1Z1-HH, but the latter is slower.
-        self.z = self.z.mul(h).double();
+        self.z = self.z.mul(&h).double();
     }
 
     /// Performs point addition in Jacobian projective coordinates.
@@ -535,16 +535,16 @@ pub const ProjectivePointJacobian = struct {
         const z2z2 = rhs.z.square();
 
         // U1 = X1*Z2Z2
-        const u_1 = self.x.mul(z2z2);
+        const u_1 = self.x.mul(&z2z2);
 
         // U2 = X2*Z1Z1
-        const u_2 = rhs.x.mul(z1z1);
+        const u_2 = rhs.x.mul(&z1z1);
 
         // S1 = Y1*Z2*Z2Z2
-        const s1 = self.y.mul(rhs.z).mul(z2z2);
+        const s1 = self.y.mul(&rhs.z).mul(&z2z2);
 
         // S2 = Y2*Z1*Z1Z1
-        const s2 = rhs.y.mul(self.z).mul(z1z1);
+        const s2 = rhs.y.mul(&self.z).mul(&z1z1);
 
         // Check if points are equal, leading to point doubling or point at infinity.
         if (u_1.eql(u_2)) {
@@ -567,23 +567,23 @@ pub const ProjectivePointJacobian = struct {
         const i = h.double().square();
 
         // J = -H*I
-        const j = h.neg().mul(i);
+        const j = h.neg().mul(&i);
 
         // r = 2*(S2-S1)
         const r = s2.sub(s1).double();
 
         // V = U1*I
-        const v = u_1.mul(i);
+        const v = u_1.mul(&i);
 
         // X3 = r^2 + J - 2*V
         self.x = r.square().add(j).sub(v.double());
 
         // Y3 = r*(V - X3) + 2*S1*J
-        self.y = r.mul(v.sub(self.x)).add(s1.double().mul(j));
+        self.y = r.mul(&v.sub(self.x)).add(s1.double().mul(&j));
 
         // Z3 = ((Z1+Z2)^2 - Z1Z1 - Z2Z2)*H
         // This is equal to Z3 = 2 * Z1 * Z2 * H, and computing it this way is faster.
-        self.z = self.z.mul(rhs.z).double().mul(h);
+        self.z = self.z.mul(&rhs.z).double().mul(&h);
     }
 
     /// Multiplies the projective point by a scalar represented as a bit slice in big-endian format.
@@ -1016,7 +1016,7 @@ test "ProjectivePointJacobian: fuzzing testing of arithmetic multiplication oper
         ));
 
         // Inverses
-        try expect(a_projective.mulByScalar(&b.inv().?.mul(b)).eql(
+        try expect(a_projective.mulByScalar(&b.inv().?.mul(&b)).eql(
             a_projective,
         ));
     }

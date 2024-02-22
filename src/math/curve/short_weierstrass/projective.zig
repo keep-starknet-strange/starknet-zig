@@ -163,8 +163,8 @@ pub const ProjectivePoint = struct {
         if (rhs.isIdentity()) return false;
 
         // Check if the x-coordinates, y-coordinates are equal.
-        return self.x.mul(rhs.z).eql(rhs.x.mul(self.z)) and
-            self.y.mul(rhs.z).eql(rhs.y.mul(self.z));
+        return self.x.mul(&rhs.z).eql(rhs.x.mul(&self.z)) and
+            self.y.mul(&rhs.z).eql(rhs.y.mul(&self.z));
     }
 
     /// Checks if this projective point lies on the elliptic curve.
@@ -237,25 +237,25 @@ pub const ProjectivePoint = struct {
         if (self.isIdentity()) return;
 
         // Calculate t = 3*x^2 + a*z^2 with a = 1 (from stark curve).
-        const t = Felt252.three().mul(self.x.square()).add(self.z.mul(self.z));
+        const t = Felt252.three().mul(&self.x.square()).add(self.z.mul(&self.z));
 
         // Calculate u = 2*y*z.
-        const u = self.y.double().mul(self.z);
+        const u = self.y.double().mul(&self.z);
 
         // Calculate v = 2*u*x*y.
-        const v = u.double().mul(self.x).mul(self.y);
+        const v = u.double().mul(&self.x).mul(&self.y);
 
         // Calculate w = t^2 - 2*v.
-        const w = t.mul(t).sub(v.double());
+        const w = t.mul(&t).sub(v.double());
 
         // Calculate uy = u*y.
-        const uy = u.mul(self.y);
+        const uy = u.mul(&self.y);
 
         // Update the projective point with the new coordinates after doubling.
         self.* = .{
-            .x = u.mul(w),
-            .y = t.mul(v.sub(w)).sub(uy.square().double()),
-            .z = u.square().mul(u),
+            .x = u.mul(&w),
+            .y = t.mul(&v.sub(w)).sub(uy.square().double()),
+            .z = u.square().mul(&u),
         };
     }
 
@@ -477,14 +477,14 @@ pub const ProjectivePoint = struct {
         }
 
         // x0 * z1
-        const u_0 = self.x.mul(rhs.z);
+        const u_0 = self.x.mul(&rhs.z);
         // x1 * z0
-        const u_1 = rhs.x.mul(self.z);
+        const u_1 = rhs.x.mul(&self.z);
 
         // slope = (y0 * z1 - y1 * z0) / (x0 * z1 - x1 * z0)
         // Null denominator the slope
         if (u_0.eql(u_1)) {
-            if (self.y.mul(rhs.z).eql(rhs.y.mul(self.z))) {
+            if (self.y.mul(&rhs.z).eql(rhs.y.mul(&self.z))) {
                 // Perform point doubling operation.
                 self.doubleAssign();
             } else {
@@ -495,9 +495,9 @@ pub const ProjectivePoint = struct {
         }
 
         // y0 * z1
-        const t0 = self.y.mul(rhs.z);
+        const t0 = self.y.mul(&rhs.z);
         // y1 * z0
-        const t1 = rhs.y.mul(self.z);
+        const t1 = rhs.y.mul(&self.z);
         // t0 - t1
         const t = t0.sub(t1);
 
@@ -506,19 +506,19 @@ pub const ProjectivePoint = struct {
         // u * u
         const u_2 = u.square();
         // u * u * u
-        const u_3 = u.mul(u_2);
+        const u_3 = u.mul(&u_2);
 
         // z0 * z1
-        const v = self.z.mul(rhs.z);
+        const v = self.z.mul(&rhs.z);
 
         // t * t * v - u2 * (u0 + u1);
-        const w = t.square().mul(v).sub(u_2.mul(u_0.add(u_1)));
+        const w = t.square().mul(&v).sub(u_2.mul(&u_0.add(u_1)));
 
         // Update the coordinates of this point with the result of the addition operation.
         self.* = .{
-            .x = u.mul(w),
-            .y = t.mul(u_0.mul(u_2).sub(w)).sub(t0.mul(u_3)),
-            .z = u_3.mul(v),
+            .x = u.mul(&w),
+            .y = t.mul(&u_0.mul(&u_2).sub(w)).sub(t0.mul(&u_3)),
+            .z = u_3.mul(&v),
         };
     }
 
@@ -551,9 +551,9 @@ pub const ProjectivePoint = struct {
         }
 
         const u_0 = self.x;
-        const u_1 = rhs.x.mul(self.z);
+        const u_1 = rhs.x.mul(&self.z);
         const t0 = self.y;
-        const t1 = rhs.y.mul(self.z);
+        const t1 = rhs.y.mul(&self.z);
 
         if (u_0.eql(u_1)) {
             if (t0.eql(t1)) {
@@ -568,16 +568,16 @@ pub const ProjectivePoint = struct {
 
         const t = t0.sub(t1);
         const u = u_0.sub(u_1);
-        const u_2 = u.mul(u);
+        const u_2 = u.mul(&u);
 
         const v = self.z;
-        const w = t.mul(t).mul(v).sub(u_2.mul(u_0.add(u_1)));
-        const u_3 = u.mul(u_2);
+        const w = t.mul(&t).mul(&v).sub(u_2.mul(&u_0.add(u_1)));
+        const u_3 = u.mul(&u_2);
 
         self.* = .{
-            .x = u.mul(w),
-            .y = t.mul(u_0.mul(u_2).sub(w)).sub(t0.mul(u_3)),
-            .z = u_3.mul(v),
+            .x = u.mul(&w),
+            .y = t.mul(&u_0.mul(&u_2).sub(w)).sub(t0.mul(&u_3)),
+            .z = u_3.mul(&v),
         };
     }
 };
@@ -959,7 +959,7 @@ test "ProjectivePoint: fuzzing testing of arithmetic multiplication operations" 
         ));
 
         // Inverses
-        try expect(a_projective.mulByScalar(&b.inv().?.mul(b)).eql(
+        try expect(a_projective.mulByScalar(&b.inv().?.mul(&b)).eql(
             a_projective,
         ));
     }

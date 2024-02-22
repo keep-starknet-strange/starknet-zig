@@ -355,9 +355,9 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
             return Self.fromInt(u256, @intCast((s * o) % m));
         }
 
-        pub fn mul(self: *const Self, rhs: Self) Self {
+        pub fn mul(self: *const Self, rhs: *const Self) Self {
             var a = self.*;
-            a.mulAssign(&rhs);
+            a.mulAssign(rhs);
             return a;
         }
 
@@ -455,7 +455,7 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
         /// The result is equivalent to repeatedly squaring the field element.
         pub fn pow2(self: Self, comptime exponent: u8) Self {
             var ret = self;
-            inline for (exponent) |_| ret = ret.mul(ret);
+            inline for (exponent) |_| ret = ret.mul(&ret);
             return ret;
         }
 
@@ -468,8 +468,8 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
             var base = self;
 
             while (exp > 0) : (exp /= 2) {
-                if (exp & 1 == 1) res = res.mul(base);
-                base = base.mul(base);
+                if (exp & 1 == 1) res = res.mul(&base);
+                base = base.mul(&base);
             }
             return res;
         }
@@ -488,12 +488,12 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
             var acc = one();
             for (0..in.len) |i| {
                 out[i] = acc;
-                acc = acc.mul(in[i]);
+                acc = acc.mul(&in[i]);
             }
             acc = acc.inv() orelse return error.CantInvertZeroElement;
             for (0..in.len) |i| {
-                out[in.len - i - 1] = out[in.len - i - 1].mul(acc);
-                acc = acc.mul(in[in.len - i - 1]);
+                out[in.len - i - 1] = out[in.len - i - 1].mul(&acc);
+                acc = acc.mul(&in[in.len - i - 1]);
             }
         }
 
@@ -534,7 +534,7 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
         ///
         /// Divides the current field element by another field element.
         pub fn div(self: Self, den: Self) !Self {
-            return self.mul(den.inv() orelse return error.DivisionByZero);
+            return self.mul(&(den.inv() orelse return error.DivisionByZero));
         }
 
         /// Check if two field elements are equal.
@@ -584,8 +584,6 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
             // Returns 1 if a has a square root modulo
             // p, -1 otherwise.
             const ls = a.pow(comptime QMinOneDiv2);
-
-            std.debug.print("legendre = {any}\n", .{ls.toInt()});
 
             if (ls.toInt() == comptime Modulo - 1) return -1;
 
