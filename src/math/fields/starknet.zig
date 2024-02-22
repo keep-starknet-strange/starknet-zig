@@ -1148,3 +1148,7 @@ test "Felt252: fromInt operations" {
         try expect(Felt252.fromInt(u8, u_8).eql(Felt252.fromInt(u256, u_256)));
     }
 }
+
+test "Felt252: canUseNoCarryMulOptimization should be true for Starknet Field" {
+    try expect(comptime Felt252.canUseNoCarryMulOptimization());
+}

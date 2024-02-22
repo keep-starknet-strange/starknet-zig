@@ -355,33 +355,101 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
             return Self.fromInt(u256, @intCast((s * o) % m));
         }
 
+        /// Determines whether the current modulus allows for a specific optimization in modular multiplication.
+        ///
+        /// This function checks if the highest bit of the modulus is zero and not all of the remaining bits are set,
+        /// which is a condition required for a specific optimization in modular multiplication.
+        ///
+        /// The optimization aims to reduce the number of additions needed in CIOS Montgomery multiplication,
+        /// resulting in a significant speed improvement for most moduli.
+        ///
+        /// # Returns:
+        /// `true` if the optimization can be applied to the current modulus, `false` otherwise.
+        pub fn canUseNoCarryMulOptimization() bool {
+            comptime {
+                // Check if the highest bit of the modulus is zero
+                const top_bit_is_zero: bool = Modulus.fe[3] >> 63 == 0;
+
+                // Check if all remaining bits are one
+                var all_remaining_bits_are_one = Modulus.fe[3] == std.math.maxInt(u64) >> 1;
+                for (1..4) |i| {
+                    all_remaining_bits_are_one = all_remaining_bits_are_one and
+                        (Modulus.fe[4 - i - 1] == std.math.maxInt(u64));
+                }
+
+                // Return true if both conditions are met
+                return top_bit_is_zero and !all_remaining_bits_are_one;
+            }
+        }
+
+        /// Performs multiplication of two field elements and returns the result.
+        ///
+        /// This function takes two pointers to field elements (`self` and `rhs`),
+        /// multiplies them together, and returns the result as a new field element.
+        ///
+        /// # Arguments:
+        /// - `self`: A pointer to the first field element.
+        /// - `rhs`: A pointer to the second field element.
+        ///
+        /// # Returns:
+        /// A new field element representing the result of the multiplication.
         pub fn mul(self: *const Self, rhs: *const Self) Self {
+            // Dereference the pointer to obtain the actual field element
             var a = self.*;
+            // Call the `mulAssign` method to perform the multiplication in place
             a.mulAssign(rhs);
+            // Return the result
             return a;
         }
 
+        /// Performs modular multiplication using Montgomery multiplication algorithm.
+        ///
+        /// Montgomery multiplication is a method used to compute modular products efficiently
+        /// without expensive divisions, particularly beneficial for cryptographic protocols
+        /// involving large moduli. The function takes two integers `a` and `b` and computes
+        /// their modular product with respect to a given modulus `N`. The function assumes that
+        /// the inputs `a`, `b`, and `N` are all in Montgomery form.
+        ///
+        /// The Montgomery form of an integer `a` with respect to a chosen radix `R` is `a * R mod N`.
+        /// This representation allows for faster modular products, where `R` is carefully chosen
+        /// such that `gcd(R, N) = 1`.
+        ///
+        /// The algorithm alternates between the multiplication and reduction steps involved in
+        /// Montgomery modular multiplication, rather than carrying out full multiplication followed by
+        /// reduction.
+        ///
+        /// Additional "no-carry optimization" is implemented, as outlined [here](https://hackmd.io/@gnark/modular_multiplication)
+        /// as modulus has (a) a non-zero most significant bit, and (b) at least one
+        /// zero bit in the rest of the modulus.
         pub fn mulAssign(self: *Self, rhs: *const Self) void {
+            // Initialize the result array
             var r = [_]u64{0} ** 4;
 
+            // Iterate over the digits of the right-hand side operand
             inline for (0..4) |i| {
+                // Perform the first multiplication and accumulation
                 var carry1: u64 = 0;
                 r[0] = arithmetic.mac(r[0], self.fe[0], rhs.fe[i], &carry1);
 
+                // Compute the Montgomery factor k and perform the corresponding multiplication and reduction
                 const k: u64 = r[0] *% comptime Self.Inv;
                 var carry2: u64 = 0;
                 arithmetic.macDiscard(r[0], k, comptime Self.Modulus.fe[0], &carry2);
 
+                // Iterate over the remaining digits and perform the multiplications and accumulations
                 inline for (1..4) |j| {
                     r[j] = arithmetic.macWithCarry(r[j], self.fe[j], rhs.fe[i], &carry1);
                     r[j - 1] = arithmetic.macWithCarry(r[j], k, Self.Modulus.fe[j], &carry2);
                 }
 
+                // Add the final carries
                 r[3] = carry1 + carry2;
             }
 
+            // Store the result back into the original object
             self.*.fe = r;
 
+            // Perform modulus subtraction if needed
             F.subtractModulus(&self.fe);
         }
 
