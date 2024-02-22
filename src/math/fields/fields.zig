@@ -421,6 +421,8 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
         /// Additional "no-carry optimization" is implemented, as outlined [here](https://hackmd.io/@gnark/modular_multiplication)
         /// as modulus has (a) a non-zero most significant bit, and (b) at least one
         /// zero bit in the rest of the modulus.
+        ///
+        /// For another reference implementation, see [arkworks-rs/algebra](https://github.com/arkworks-rs/algebra/blob/3a6156785e12eeb9083a7a402ac037de01f6c069/ff/src/fields/models/fp/montgomery_backend.rs#L151)
         pub fn mulAssign(self: *Self, rhs: *const Self) void {
             // Initialize the result array
             var r = [_]u64{0} ** 4;
@@ -644,6 +646,16 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
         /// Calculate the Legendre symbol of a field element.
         ///
         /// Computes the Legendre symbol of the field element using Euler's criterion.
+        /// The Legendre symbol is a mathematical function commonly used in number theory
+        /// to determine whether a given integer is a quadratic residue modulo a prime number.
+        ///
+        /// # Arguments:
+        /// - `a`: The field element for which the Legendre symbol is calculated.
+        ///
+        /// # Returns:
+        /// - `1` if `a` has a square root modulo the modulus (`p`),
+        /// - `-1` if `a` does not have a square root modulo `p`,
+        /// - `0` if `a` is zero modulo `p`.
         pub fn legendre(a: Self) i2 {
             // Compute the Legendre symbol a|p using
             // Euler's criterion. p is a prime, a is
@@ -651,12 +663,17 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
             // a, then a|p = 0)
             // Returns 1 if a has a square root modulo
             // p, -1 otherwise.
+
+            // Calculate a^(p-1)/2 modulo p
             const ls = a.pow(comptime QMinOneDiv2);
 
+            // Check if a^(p-1)/2 is equivalent to -1 modulo p
             if (ls.toInt() == comptime Modulo - 1) return -1;
 
+            // Check if a^(p-1)/2 is equivalent to 0 modulo p
             if (ls.isZero()) return 0;
 
+            // Otherwise, a^(p-1)/2 is equivalent to 1 modulo p
             return 1;
         }
 
