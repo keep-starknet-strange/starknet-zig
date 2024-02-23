@@ -472,21 +472,10 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
             F.subtractModulus(&self.fe);
         }
 
-        /// Multiply a field element by 5.
-        ///
-        /// Multiplies the current field element by the constant 5.
-        pub fn mulBy5(self: Self) Self {
-            var ret: F.MontgomeryDomainFieldElement = undefined;
-            F.add(&ret, self.fe, self.fe);
-            F.add(&ret, ret, ret);
-            F.add(&ret, ret, self.fe);
-            return .{ .fe = ret };
-        }
-
         /// Negate a field element.
         ///
         /// Negates the value of the current field element.
-        pub fn neg(self: Self) Self {
+        pub fn neg(self: *const Self) Self {
             var ret: F.MontgomeryDomainFieldElement = undefined;
             F.sub(&ret, Self.zero().fe, self.fe);
             return .{ .fe = ret };
@@ -495,14 +484,14 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
         /// Check if the field element is zero.
         ///
         /// Determines if the current field element is equal to zero.
-        pub fn isZero(self: Self) bool {
+        pub fn isZero(self: *const Self) bool {
             return self.eql(Self.zero());
         }
 
         /// Check if the field element is one.
         ///
         /// Determines if the current field element is equal to one.
-        pub fn isOne(self: Self) bool {
+        pub fn isOne(self: *const Self) bool {
             return self.eql(one());
         }
 

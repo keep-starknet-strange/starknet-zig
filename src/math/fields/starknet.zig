@@ -346,21 +346,6 @@ test "Felt252 mul" {
     );
 }
 
-test "Felt252 mulBy5" {
-    try expect(Felt252.zero().mulBy5().isZero());
-    try expectEqual(
-        @as(u256, 5),
-        Felt252.one().mulBy5().toInt(),
-    );
-    try expectEqual(
-        @as(
-            u256,
-            0x7fffffffffff570ffffffffffffffffffffffffffffffffffffffffffffff5c,
-        ),
-        Felt252.fromInt(u256, std.math.maxInt(u256)).mulBy5().toInt(),
-    );
-}
-
 test "Felt252 neg" {
     try expectEqual(
         @as(
