@@ -10,9 +10,6 @@ pub const ModSqrtError = error{
     InvalidInput,
 };
 
-// // Modulus in non Montgomery format
-// const MODULUS_NON_MONT = [4]u64{ 1, 0, 0, 576460752303423505 };
-
 /// Represents a finite field element.
 pub fn Field(comptime F: type, comptime modulo: u256) type {
     return struct {
@@ -77,11 +74,11 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
             var mont: F.MontgomeryDomainFieldElement = undefined;
             std.debug.assert(num >= 0);
             switch (@typeInfo(T).Int.bits) {
-                0...63 => F.toMontgomery(&mont, [_]u64{ @intCast(num), 0, 0, 0 }),
-                64 => F.toMontgomery(&mont, [_]u64{ num, 0, 0, 0 }),
+                0...63 => F.toMontgomery(&mont, [Limbs]u64{ @intCast(num), 0, 0, 0 }),
+                64 => F.toMontgomery(&mont, [Limbs]u64{ num, 0, 0, 0 }),
                 65...128 => F.toMontgomery(
                     &mont,
-                    [_]u64{
+                    [Limbs]u64{
                         @truncate(
                             @mod(
                                 num,
@@ -100,21 +97,10 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
                 ),
                 else => {
                     var lbe: [BytesSize]u8 = [_]u8{0} ** BytesSize;
-                    std.mem.writeInt(
-                        u256,
-                        lbe[0..],
-                        num % Modulo,
-                        .little,
-                    );
+                    std.mem.writeInt(u256, lbe[0..], num % Modulo, .little);
                     var nonMont: F.NonMontgomeryDomainFieldElement = undefined;
-                    F.fromBytes(
-                        &nonMont,
-                        lbe,
-                    );
-                    F.toMontgomery(
-                        &mont,
-                        nonMont,
-                    );
+                    F.fromBytes(&nonMont, lbe);
+                    F.toMontgomery(&mont, nonMont);
                 },
             }
 
@@ -125,7 +111,7 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
         ///
         /// Returns a field element with a value of zero.
         pub inline fn zero() Self {
-            return .{ .fe = [4]u64{ 0, 0, 0, 0 } };
+            return .{ .fe = [Limbs]u64{ 0, 0, 0, 0 } };
         }
 
         /// Get the field element representing one.
@@ -133,7 +119,7 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
         /// Returns a field element with a value of one.
         pub inline fn one() Self {
             return .{
-                .fe = [4]u64{
+                .fe = [Limbs]u64{
                     18446744073709551585,
                     18446744073709551615,
                     18446744073709551615,
@@ -147,7 +133,7 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
         /// Returns a field element with a value of two.
         pub inline fn two() Self {
             return .{
-                .fe = [4]u64{
+                .fe = [Limbs]u64{
                     18446744073709551553,
                     18446744073709551615,
                     18446744073709551615,
@@ -161,7 +147,7 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
         /// Returns a field element with a value of three.
         pub inline fn three() Self {
             return .{
-                .fe = [4]u64{
+                .fe = [Limbs]u64{
                     18446744073709551521,
                     18446744073709551615,
                     18446744073709551615,
@@ -175,7 +161,7 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
         /// Converts a byte array into a field element in Montgomery representation.
         pub fn fromBytes(bytes: [BytesSize]u8) Self {
             var non_mont: F.NonMontgomeryDomainFieldElement = undefined;
-            inline for (0..4) |i| {
+            inline for (0..Limbs) |i| {
                 non_mont[i] = std.mem.readInt(
                     u64,
                     bytes[i * 8 .. (i + 1) * 8],
@@ -193,8 +179,8 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
         /// Converts a byte array into a field element in Montgomery representation.
         pub fn fromBytesBe(bytes: [BytesSize]u8) Self {
             var non_mont: F.NonMontgomeryDomainFieldElement = undefined;
-            inline for (0..4) |i| {
-                non_mont[3 - i] = std.mem.readInt(
+            inline for (0..Limbs) |i| {
+                non_mont[Limbs - 1 - i] = std.mem.readInt(
                     u64,
                     bytes[i * 8 .. (i + 1) * 8],
                     .big,
@@ -213,7 +199,7 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
             var bits = [_]u1{0} ** @bitSizeOf(u256);
             const nmself = self.fromMontgomery();
 
-            inline for (0..4) |ind_element| {
+            inline for (0..Limbs) |ind_element| {
                 inline for (0..64) |ind_bit| {
                     bits[ind_element * 64 + ind_bit] = @intCast(
                         (nmself[ind_element] >> ind_bit) & 1,
@@ -237,7 +223,7 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
             var non_mont: F.NonMontgomeryDomainFieldElement = undefined;
             F.fromMontgomery(&non_mont, self.fe);
             var ret: [BytesSize]u8 = undefined;
-            inline for (0..4) |i| {
+            inline for (0..Limbs) |i| {
                 std.mem.writeInt(
                     u64,
                     ret[i * 8 .. (i + 1) * 8],
@@ -256,11 +242,11 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
             var non_mont: F.NonMontgomeryDomainFieldElement = undefined;
             F.fromMontgomery(&non_mont, self.fe);
             var ret: [BytesSize]u8 = undefined;
-            inline for (0..4) |i| {
+            inline for (0..Limbs) |i| {
                 std.mem.writeInt(
                     u64,
                     ret[i * 8 .. (i + 1) * 8],
-                    non_mont[3 - i],
+                    non_mont[Limbs - 1 - i],
                     .big,
                 );
             }
@@ -273,10 +259,9 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
         /// Returns number of bits needed.
         pub fn numBits(self: Self) u64 {
             const nmself = self.fromMontgomery();
-            inline for (0..4) |i| {
-                if (nmself[3 - i] != 0)
-                    return (4 - i) * @bitSizeOf(u64) - @clz(nmself[3 - i]);
-            }
+            inline for (0..Limbs) |i|
+                if (nmself[Limbs - 1 - i] != 0)
+                    return (Limbs - i) * @bitSizeOf(u64) - @clz(nmself[Limbs - 1 - i]);
 
             return 0;
         }
@@ -318,10 +303,7 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
         /// Calculating mod sqrt
         /// TODO: add precomution?
         pub fn sqrt(self: Self) ?Self {
-            const v = tonelliShanks(
-                @intCast(self.toInt()),
-                @intCast(modulo),
-            );
+            const v = tonelliShanks(self.toInt(), modulo);
             return if (v[2]) Self.fromInt(u256, @intCast(v[0])) else null;
         }
 
@@ -369,7 +351,7 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
             comptime {
                 // Check if all remaining bits are one
                 var all_remaining_bits_are_one = Modulus.fe[Limbs - 1] == std.math.maxInt(u64) >> 1;
-                for (1..4) |i| {
+                for (1..Limbs) |i| {
                     all_remaining_bits_are_one = all_remaining_bits_are_one and
                         (Modulus.fe[Limbs - i - 1] == std.math.maxInt(u64));
                 }
