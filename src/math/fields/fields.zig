@@ -118,55 +118,63 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
         ///
         /// Returns a field element with a value of zero.
         pub inline fn zero() Self {
-            return .{ .fe = bigInt(Limbs){} };
+            comptime {
+                return .{ .fe = bigInt(Limbs){} };
+            }
         }
 
         /// Get the field element representing one.
         ///
         /// Returns a field element with a value of one.
         pub inline fn one() Self {
-            return .{
-                .fe = bigInt(Limbs).init(
-                    .{
-                        18446744073709551585,
-                        18446744073709551615,
-                        18446744073709551615,
-                        576460752303422960,
-                    },
-                ),
-            };
+            comptime {
+                return .{
+                    .fe = bigInt(Limbs).init(
+                        .{
+                            18446744073709551585,
+                            18446744073709551615,
+                            18446744073709551615,
+                            576460752303422960,
+                        },
+                    ),
+                };
+            }
         }
 
         /// Get the field element representing two.
         ///
         /// Returns a field element with a value of two.
         pub inline fn two() Self {
-            return .{
-                .fe = bigInt(Limbs).init(
-                    .{
-                        18446744073709551553,
-                        18446744073709551615,
-                        18446744073709551615,
-                        576460752303422416,
-                    },
-                ),
-            };
+            comptime {
+                return .{
+                    .fe = bigInt(Limbs).init(
+                        .{
+                            18446744073709551553,
+                            18446744073709551615,
+                            18446744073709551615,
+                            576460752303422416,
+                        },
+                    ),
+                };
+            }
         }
 
         /// Get the field element representing three.
         ///
         /// Returns a field element with a value of three.
         pub inline fn three() Self {
-            return .{
-                .fe = bigInt(Limbs).init(
-                    .{
-                        18446744073709551521,
-                        18446744073709551615,
-                        18446744073709551615,
-                        576460752303421872,
-                    },
-                ),
-            };
+            comptime {
+                return .{
+                    .fe = bigInt(Limbs).init(
+                        .{
+                            18446744073709551521,
+                            18446744073709551615,
+                            18446744073709551615,
+                            576460752303421872,
+                        },
+                    ),
+                };
+            }
         }
 
         /// Create a field element from a byte array.
