@@ -781,7 +781,7 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
         ///
         /// # Returns
         /// A `std.math.Order` enum indicating the ordering relationship.
-        pub fn cmp(self: Self, rhs: Self) std.math.Order {
+        pub fn cmp(self: *const Self, rhs: *const Self) std.math.Order {
             var a_non_mont: F.NonMontgomeryDomainFieldElement = undefined;
             var b_non_mont: F.NonMontgomeryDomainFieldElement = undefined;
             F.fromMontgomery(&a_non_mont, self.fe);
@@ -799,7 +799,7 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
         ///
         /// # Returns
         /// `true` if `self` is less than `rhs`, `false` otherwise.
-        pub fn lt(self: Self, rhs: Self) bool {
+        pub fn lt(self: *const Self, rhs: *const Self) bool {
             return switch (self.cmp(rhs)) {
                 .lt => true,
                 else => false,
@@ -814,7 +814,7 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
         ///
         /// # Returns
         /// `true` if `self` is less than or equal to `rhs`, `false` otherwise.
-        pub fn le(self: Self, rhs: Self) bool {
+        pub fn le(self: *const Self, rhs: *const Self) bool {
             return switch (self.cmp(rhs)) {
                 .lt, .eq => true,
                 else => false,
@@ -829,7 +829,7 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
         ///
         /// # Returns
         /// `true` if `self` is greater than `rhs`, `false` otherwise.
-        pub fn gt(self: Self, rhs: Self) bool {
+        pub fn gt(self: *const Self, rhs: *const Self) bool {
             return switch (self.cmp(rhs)) {
                 .gt => true,
                 else => false,
@@ -844,7 +844,7 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
         ///
         /// # Returns
         /// `true` if `self` is greater than or equal to `rhs`, `false` otherwise.
-        pub fn ge(self: Self, rhs: Self) bool {
+        pub fn ge(self: *const Self, rhs: *const Self) bool {
             return switch (self.cmp(rhs)) {
                 .gt, .eq => true,
                 else => false,

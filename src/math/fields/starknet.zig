@@ -499,65 +499,65 @@ test "Felt252 legendre" {
 }
 
 test "Felt252 cmp" {
-    try expect(Felt252.fromInt(u8, 10).cmp(Felt252.fromInt(u64, 343535)) == .lt);
-    try expect(Felt252.fromInt(u64, 433).cmp(Felt252.fromInt(u64, 343535)) == .lt);
-    try expect(Felt252.fromInt(u64, 543636535).cmp(Felt252.fromInt(u64, 434)) == .gt);
-    try expect(Felt252.fromInt(u256, std.math.maxInt(u256)).cmp(Felt252.fromInt(u64, 21313)) == .gt);
-    try expect(Felt252.fromInt(u8, 10).cmp(Felt252.fromInt(u8, 10)) == .eq);
-    try expect(Felt252.one().cmp(Felt252.one()) == .eq);
-    try expect(Felt252.zero().cmp(Felt252.zero()) == .eq);
-    try expect(Felt252.fromInt(u8, 10).cmp(Felt252.fromInt(u256, 10 + STARKNET_PRIME)) == .eq);
+    try expect(Felt252.fromInt(u8, 10).cmp(&Felt252.fromInt(u64, 343535)) == .lt);
+    try expect(Felt252.fromInt(u64, 433).cmp(&Felt252.fromInt(u64, 343535)) == .lt);
+    try expect(Felt252.fromInt(u64, 543636535).cmp(&Felt252.fromInt(u64, 434)) == .gt);
+    try expect(Felt252.fromInt(u256, std.math.maxInt(u256)).cmp(&Felt252.fromInt(u64, 21313)) == .gt);
+    try expect(Felt252.fromInt(u8, 10).cmp(&Felt252.fromInt(u8, 10)) == .eq);
+    try expect(Felt252.one().cmp(&Felt252.one()) == .eq);
+    try expect(Felt252.zero().cmp(&Felt252.zero()) == .eq);
+    try expect(Felt252.fromInt(u8, 10).cmp(&Felt252.fromInt(u256, 10 + STARKNET_PRIME)) == .eq);
 }
 
 test "Felt252 lt" {
-    try expect(Felt252.fromInt(u8, 10).lt(Felt252.fromInt(u64, 343535)));
-    try expect(Felt252.fromInt(u64, 433).lt(Felt252.fromInt(u64, 343535)));
-    try expect(!Felt252.fromInt(u64, 543636535).lt(Felt252.fromInt(u64, 434)));
-    try expect(!Felt252.fromInt(u256, std.math.maxInt(u256)).lt(Felt252.fromInt(u64, 21313)));
-    try expect(!Felt252.fromInt(u8, 10).lt(Felt252.fromInt(u8, 10)));
-    try expect(!Felt252.one().lt(Felt252.one()));
-    try expect(!Felt252.zero().lt(Felt252.zero()));
+    try expect(Felt252.fromInt(u8, 10).lt(&Felt252.fromInt(u64, 343535)));
+    try expect(Felt252.fromInt(u64, 433).lt(&Felt252.fromInt(u64, 343535)));
+    try expect(!Felt252.fromInt(u64, 543636535).lt(&Felt252.fromInt(u64, 434)));
+    try expect(!Felt252.fromInt(u256, std.math.maxInt(u256)).lt(&Felt252.fromInt(u64, 21313)));
+    try expect(!Felt252.fromInt(u8, 10).lt(&Felt252.fromInt(u8, 10)));
+    try expect(!Felt252.one().lt(&Felt252.one()));
+    try expect(!Felt252.zero().lt(&Felt252.zero()));
     try expect(!Felt252.fromInt(u8, 10).lt(
-        Felt252.fromInt(u256, 10 + STARKNET_PRIME),
+        &Felt252.fromInt(u256, 10 + STARKNET_PRIME),
     ));
 }
 
 test "Felt252 le" {
-    try expect(Felt252.fromInt(u8, 10).le(Felt252.fromInt(u64, 343535)));
-    try expect(Felt252.fromInt(u64, 433).le(Felt252.fromInt(u64, 343535)));
-    try expect(!Felt252.fromInt(u64, 543636535).le(Felt252.fromInt(u64, 434)));
-    try expect(!Felt252.fromInt(u256, std.math.maxInt(u256)).le(Felt252.fromInt(u64, 21313)));
-    try expect(Felt252.fromInt(u8, 10).le(Felt252.fromInt(u8, 10)));
-    try expect(Felt252.one().le(Felt252.one()));
-    try expect(Felt252.zero().le(Felt252.zero()));
+    try expect(Felt252.fromInt(u8, 10).le(&Felt252.fromInt(u64, 343535)));
+    try expect(Felt252.fromInt(u64, 433).le(&Felt252.fromInt(u64, 343535)));
+    try expect(!Felt252.fromInt(u64, 543636535).le(&Felt252.fromInt(u64, 434)));
+    try expect(!Felt252.fromInt(u256, std.math.maxInt(u256)).le(&Felt252.fromInt(u64, 21313)));
+    try expect(Felt252.fromInt(u8, 10).le(&Felt252.fromInt(u8, 10)));
+    try expect(Felt252.one().le(&Felt252.one()));
+    try expect(Felt252.zero().le(&Felt252.zero()));
     try expect(Felt252.fromInt(u8, 10).le(
-        Felt252.fromInt(u256, 10 + STARKNET_PRIME),
+        &Felt252.fromInt(u256, 10 + STARKNET_PRIME),
     ));
 }
 
 test "Felt252 gt" {
-    try expect(!Felt252.fromInt(u8, 10).gt(Felt252.fromInt(u64, 343535)));
-    try expect(!Felt252.fromInt(u64, 433).gt(Felt252.fromInt(u64, 343535)));
-    try expect(Felt252.fromInt(u64, 543636535).gt(Felt252.fromInt(u64, 434)));
-    try expect(Felt252.fromInt(u256, std.math.maxInt(u256)).gt(Felt252.fromInt(u64, 21313)));
-    try expect(!Felt252.fromInt(u8, 10).gt(Felt252.fromInt(u8, 10)));
-    try expect(!Felt252.one().gt(Felt252.one()));
-    try expect(!Felt252.zero().gt(Felt252.zero()));
+    try expect(!Felt252.fromInt(u8, 10).gt(&Felt252.fromInt(u64, 343535)));
+    try expect(!Felt252.fromInt(u64, 433).gt(&Felt252.fromInt(u64, 343535)));
+    try expect(Felt252.fromInt(u64, 543636535).gt(&Felt252.fromInt(u64, 434)));
+    try expect(Felt252.fromInt(u256, std.math.maxInt(u256)).gt(&Felt252.fromInt(u64, 21313)));
+    try expect(!Felt252.fromInt(u8, 10).gt(&Felt252.fromInt(u8, 10)));
+    try expect(!Felt252.one().gt(&Felt252.one()));
+    try expect(!Felt252.zero().gt(&Felt252.zero()));
     try expect(!Felt252.fromInt(u8, 10).gt(
-        Felt252.fromInt(u256, 10 + STARKNET_PRIME),
+        &Felt252.fromInt(u256, 10 + STARKNET_PRIME),
     ));
 }
 
 test "Felt252 ge" {
-    try expect(!Felt252.fromInt(u8, 10).ge(Felt252.fromInt(u64, 343535)));
-    try expect(!Felt252.fromInt(u64, 433).ge(Felt252.fromInt(u64, 343535)));
-    try expect(Felt252.fromInt(u64, 543636535).ge(Felt252.fromInt(u64, 434)));
-    try expect(Felt252.fromInt(u256, std.math.maxInt(u256)).ge(Felt252.fromInt(u64, 21313)));
-    try expect(Felt252.fromInt(u8, 10).ge(Felt252.fromInt(u8, 10)));
-    try expect(Felt252.one().ge(Felt252.one()));
-    try expect(Felt252.zero().ge(Felt252.zero()));
+    try expect(!Felt252.fromInt(u8, 10).ge(&Felt252.fromInt(u64, 343535)));
+    try expect(!Felt252.fromInt(u64, 433).ge(&Felt252.fromInt(u64, 343535)));
+    try expect(Felt252.fromInt(u64, 543636535).ge(&Felt252.fromInt(u64, 434)));
+    try expect(Felt252.fromInt(u256, std.math.maxInt(u256)).ge(&Felt252.fromInt(u64, 21313)));
+    try expect(Felt252.fromInt(u8, 10).ge(&Felt252.fromInt(u8, 10)));
+    try expect(Felt252.one().ge(&Felt252.one()));
+    try expect(Felt252.zero().ge(&Felt252.zero()));
     try expect(Felt252.fromInt(u8, 10).ge(
-        Felt252.fromInt(u256, 10 + STARKNET_PRIME),
+        &Felt252.fromInt(u256, 10 + STARKNET_PRIME),
     ));
 }
 
