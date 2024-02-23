@@ -5,6 +5,7 @@ const ArrayList = std.ArrayList;
 const tonelliShanks = @import("./helper.zig").tonelliShanks;
 const extendedGCD = @import("./helper.zig").extendedGCD;
 const arithmetic = @import("./arithmetic.zig");
+const bigInt = @import("./biginteger.zig").bigInt;
 
 pub const ModSqrtError = error{
     InvalidInput,
@@ -45,6 +46,10 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
                 std.math.maxInt(u64),
                 std.math.maxInt(u64),
             },
+        };
+        /// R2 = R^2 % Self::MODULUS (used for Montgomery operations)
+        pub const R2: Self = .{
+            .fe = .{ 18446741271209837569, 5151653887, 18446744073700081664, 576413109808302096 },
         };
 
         fe: F.MontgomeryDomainFieldElement,
@@ -561,7 +566,7 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
             // Perform squaring
             inline for (0..Limbs) |i| {
                 r.getBuf(2 * i).* = arithmetic.macWithCarry(r.getBuf(2 * i).*, self.fe[i], self.fe[i], &carry);
-                carry = arithmetic.adc(r.getBuf(2 * i + 1), 0, carry);
+                carry = arithmetic.adc(u64, r.getBuf(2 * i + 1), 0, carry);
             }
 
             // Montgomery reduction
@@ -576,7 +581,7 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
                 inline for (1..Limbs) |j|
                     r.getBuf(j + i).* = arithmetic.macWithCarry(r.getBuf(j + i).*, k, Modulus.fe[j], &carry);
 
-                carry2 = arithmetic.adc(&r.buf[1][i], carry, carry2);
+                carry2 = arithmetic.adc(u64, &r.buf[1][i], carry, carry2);
             }
 
             // Copy result back to the field element
@@ -638,33 +643,110 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
             return Self.fromInt(u256, r.int(u256));
         }
 
-        /// Calculate the multiplicative inverse of a field element.
+        /// Subtracts a bigint from another bigint and assigns the result to the first bigint.
         ///
-        /// Computes the multiplicative inverse of the current field element.
-        pub fn inv(self: Self) ?Self {
-            var r: u256 = Modulo;
-            var t: i512 = 0;
+        /// This function subtracts a bigint `b` from another bigint `a` and assigns the result to `a`.
+        /// If `b` is greater than `a`, it adds the modulus to `a` first to ensure correct subtraction in a finite field.
+        ///
+        /// Parameters:
+        ///   - a: A pointer to the bigint from which `b` will be subtracted, and the result will be assigned.
+        ///   - b: A pointer to the bigint that will be subtracted from `a`.
+        ///
+        /// Returns:
+        ///   - void
+        ///
+        /// Notes:
+        ///   - If `b` is greater than `a`, the modulus of the finite field is added to `a` before subtraction to ensure correct arithmetic in a finite field context.
+        ///   - The subtraction operation is performed in place, and the result is assigned to `a`.
+        pub fn subAssignBigInt(a: *bigInt(Limbs), b: *const bigInt(Limbs)) void {
+            // If b > a, add the modulus to `a` first.
+            if (b.cmp(a) == .gt)
+                _ = a.addWithCarryAssign(&bigInt(Limbs).init(Modulus.fe));
 
-            var newr: u256 = self.toInt();
-            var newt: i512 = 1;
+            // Perform the subtraction operation
+            _ = a.subWithBorrowAssign(b);
+        }
 
-            while (newr != 0) {
-                const quotient = r / newr;
-                const tempt = t - quotient * newt;
-                const tempr = r - quotient * newr;
+        /// Computes the multiplicative inverse of a given element in a finite field using the binary Extended Euclidean Algorithm (BEA).
+        ///
+        /// Reference: Efficient Software-Implementation of Finite Fields with Applications to Cryptography
+        /// DOI: DOI: 10.1007/s10440-006-9046-1
+        ///
+        /// This function implements the binary Extended Euclidean Algorithm (BEA) to compute the multiplicative inverse of a given element in a finite field.
+        /// It follows the steps outlined in the BEA, including successive division and modular arithmetic operations, to determine the inverse.
+        ///
+        ///  BEA does not require integer divisions but only simple operations such as shifts and additions
+        ///
+        /// Parameters:
+        ///   - self: A pointer to the element for which the inverse is to be computed.
+        ///
+        /// Returns:
+        ///   - On success: A structure containing the computed inverse.
+        ///   - On failure (if the input is zero): `null`.
+        ///
+        /// Notes:
+        ///   - The binary Extended Euclidean Algorithm (BEA) is a general and efficient method for computing multiplicative inverses in finite fields.
+        ///   - Montgomery parameters are used to optimize the computation, improving performance on digital computers.
+        ///   - Overflow handling is performed to ensure correct arithmetic operations during the inversion process.
+        pub fn inv(self: *const Self) ?Self {
+            // Check if the input is zero
+            if (self.isZero()) return null;
 
-                r = newr;
-                t = newt;
-                newr = tempr;
-                newt = tempt;
+            // Constant representing the value 1 in the field
+            const o = comptime bigInt(Limbs).one();
+            // Constant representing the modulus of the field
+            const m = bigInt(Limbs).init(Modulus.fe);
+
+            var u = bigInt(Limbs).init(self.fe);
+            var v = bigInt(Limbs).init(Modulus.fe);
+            var b = bigInt(Limbs).init(R2.fe);
+            var c = comptime bigInt(Limbs){};
+
+            // Iterate while both u and v are not one
+            while (!u.eql(o) and !v.eql(o)) {
+                // Perform operations while u is even
+                while (u.isEven()) {
+                    u.div2Assign();
+
+                    if (b.isEven()) {
+                        b.div2Assign();
+                    } else {
+                        const carry = b.addWithCarryAssign(&m);
+                        b.div2Assign();
+                        // Handle overflow if necessary
+                        if (comptime !Self.modulusHasSpareBit() and carry) {
+                            b.limbs[Limbs - 1] |= 1 << 63;
+                        }
+                    }
+                }
+
+                // Perform operations while v is even
+                while (v.isEven()) {
+                    v.div2Assign();
+                    if (c.isEven()) {
+                        c.div2Assign();
+                    } else {
+                        const carry = c.addWithCarryAssign(&m);
+                        c.div2Assign();
+                        // Handle overflow if necessary
+                        if (comptime !Self.modulusHasSpareBit() and carry) {
+                            c.limbs[Limbs - 1] |= 1 << 63;
+                        }
+                    }
+                }
+
+                // Update based on u vs v values
+                if (v.cmp(&u) == .lt) {
+                    _ = u.subWithBorrowAssign(&v);
+                    Self.subAssignBigInt(&b, &c);
+                } else {
+                    _ = v.subWithBorrowAssign(&u);
+                    Self.subAssignBigInt(&c, &b);
+                }
             }
 
-            // Not invertible
-            if (r > 1) return null;
-
-            if (t < 0) t = t + Modulo;
-
-            return Self.fromInt(u256, @intCast(t));
+            // Return the inverse based on the final values of u and v
+            return if (u.eql(o)) .{ .fe = b.limbs } else .{ .fe = c.limbs };
         }
 
         /// Divide one field element by another.

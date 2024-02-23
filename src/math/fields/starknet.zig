@@ -1070,6 +1070,8 @@ test "Felt252: arithmetic multiplication operations" {
         try expect(a.mul(&a.inv().?).eql(one));
         try expect(b.mul(&b.inv().?).eql(one));
         try expect(c.mul(&c.inv().?).eql(one));
+        try expectEqual(null, zero.inv());
+        try expect(one.inv().?.eql(one));
 
         // Associativity and commutativity simultaneously
         try expect(a.mul(&b).mul(&c).eql(a.mul(&c).mul(&b)));
