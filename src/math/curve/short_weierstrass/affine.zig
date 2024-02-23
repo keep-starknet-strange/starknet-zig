@@ -3,6 +3,7 @@
 const std = @import("std");
 
 const Felt252 = @import("../../fields/starknet.zig").Felt252;
+const bigInt = @import("../../fields/biginteger.zig").bigInt;
 const CurveParams = @import("../curve_params.zig");
 const EcPointError = @import("../errors.zig").EcPointError;
 const ProjectivePoint = @import("./projective.zig").ProjectivePoint;
@@ -605,20 +606,24 @@ test "AffinePoint: generator function should return the generator of the curve" 
     try expectEqual(
         AffinePoint{
             .x = .{
-                .fe = [4]u64{
-                    14484022957141291997,
-                    5884444832209845738,
-                    299981207024966779,
-                    232005955912912577,
-                },
+                .fe = bigInt(4).init(
+                    .{
+                        14484022957141291997,
+                        5884444832209845738,
+                        299981207024966779,
+                        232005955912912577,
+                    },
+                ),
             },
             .y = .{
-                .fe = [4]u64{
-                    6241159653446987914,
-                    664812301889158119,
-                    18147424675297964973,
-                    405578048423154473,
-                },
+                .fe = bigInt(4).init(
+                    .{
+                        6241159653446987914,
+                        664812301889158119,
+                        18147424675297964973,
+                        405578048423154473,
+                    },
+                ),
             },
             .infinity = false,
         },

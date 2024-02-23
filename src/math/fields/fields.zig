@@ -19,9 +19,10 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
         // Reprensentation of - modulus^{-1} mod 2^{64}
         pub const Inv: u64 = 0xffffffffffffffff;
         // One before the modulus
-        pub const MaxField: Self = .{ .fe = .{ 32, 0, 0, 544 } };
+        pub const MaxField: bigInt(Limbs) = bigInt(Limbs).init(.{ 32, 0, 0, 544 });
         // Modulus in non Montgomery format
-        pub const Modulus: Self = .{ .fe = .{ 1, 0, 0, 576460752303423505 } };
+        // pub const Modulus: Self = .{ .fe = .{ 1, 0, 0, 576460752303423505 } };
+        pub const Modulus: bigInt(Limbs) = bigInt(Limbs).init(.{ 1, 0, 0, 576460752303423505 });
         /// Number of bits needed to represent a field element with the given modulo.
         pub const BitSize = @bitSizeOf(u256) - @clz(modulo);
         /// Number of bytes required to store a field element.
@@ -39,20 +40,21 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
         /// The smallest value that can be represented by this integer type.
         pub const Min = Self.zero();
         /// The largest value that can be represented by this integer type.
-        pub const Max: Self = .{
-            .fe = .{
-                std.math.maxInt(u64),
-                std.math.maxInt(u64),
-                std.math.maxInt(u64),
-                std.math.maxInt(u64),
-            },
-        };
+        pub const Max: bigInt(Limbs) = bigInt(Limbs).init(.{
+            std.math.maxInt(u64),
+            std.math.maxInt(u64),
+            std.math.maxInt(u64),
+            std.math.maxInt(u64),
+        });
         /// R2 = R^2 % Self::MODULUS (used for Montgomery operations)
-        pub const R2: Self = .{
-            .fe = .{ 18446741271209837569, 5151653887, 18446744073700081664, 576413109808302096 },
-        };
+        pub const R2: bigInt(Limbs) = bigInt(Limbs).init(.{
+            18446741271209837569,
+            5151653887,
+            18446744073700081664,
+            576413109808302096,
+        });
 
-        fe: F.MontgomeryDomainFieldElement,
+        fe: bigInt(Limbs),
 
         /// Mask to apply to the highest limb to get the correct number of bits.
         pub fn mask(bits: usize) u64 {
@@ -109,14 +111,14 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
                 },
             }
 
-            return .{ .fe = mont };
+            return .{ .fe = bigInt(Limbs).init(mont) };
         }
 
         /// Get the field element representing zero.
         ///
         /// Returns a field element with a value of zero.
         pub inline fn zero() Self {
-            return .{ .fe = [Limbs]u64{ 0, 0, 0, 0 } };
+            return .{ .fe = bigInt(Limbs){} };
         }
 
         /// Get the field element representing one.
@@ -124,12 +126,14 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
         /// Returns a field element with a value of one.
         pub inline fn one() Self {
             return .{
-                .fe = [Limbs]u64{
-                    18446744073709551585,
-                    18446744073709551615,
-                    18446744073709551615,
-                    576460752303422960,
-                },
+                .fe = bigInt(Limbs).init(
+                    .{
+                        18446744073709551585,
+                        18446744073709551615,
+                        18446744073709551615,
+                        576460752303422960,
+                    },
+                ),
             };
         }
 
@@ -138,12 +142,14 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
         /// Returns a field element with a value of two.
         pub inline fn two() Self {
             return .{
-                .fe = [Limbs]u64{
-                    18446744073709551553,
-                    18446744073709551615,
-                    18446744073709551615,
-                    576460752303422416,
-                },
+                .fe = bigInt(Limbs).init(
+                    .{
+                        18446744073709551553,
+                        18446744073709551615,
+                        18446744073709551615,
+                        576460752303422416,
+                    },
+                ),
             };
         }
 
@@ -152,12 +158,14 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
         /// Returns a field element with a value of three.
         pub inline fn three() Self {
             return .{
-                .fe = [Limbs]u64{
-                    18446744073709551521,
-                    18446744073709551615,
-                    18446744073709551615,
-                    576460752303421872,
-                },
+                .fe = bigInt(Limbs).init(
+                    .{
+                        18446744073709551521,
+                        18446744073709551615,
+                        18446744073709551615,
+                        576460752303421872,
+                    },
+                ),
             };
         }
 
@@ -174,7 +182,7 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
                 );
             }
             var ret: Self = undefined;
-            F.toMontgomery(&ret.fe, non_mont);
+            F.toMontgomery(&ret.fe.limbs, non_mont);
 
             return ret;
         }
@@ -192,7 +200,7 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
                 );
             }
             var ret: Self = undefined;
-            F.toMontgomery(&ret.fe, non_mont);
+            F.toMontgomery(&ret.fe.limbs, non_mont);
 
             return ret;
         }
@@ -226,7 +234,7 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
         /// This function converts the field element to a byte array for serialization.
         pub fn toBytes(self: Self) [BytesSize]u8 {
             var non_mont: F.NonMontgomeryDomainFieldElement = undefined;
-            F.fromMontgomery(&non_mont, self.fe);
+            F.fromMontgomery(&non_mont, self.fe.limbs);
             var ret: [BytesSize]u8 = undefined;
             inline for (0..Limbs) |i| {
                 std.mem.writeInt(
@@ -245,7 +253,7 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
         /// This function converts the field element to a big-endian byte array for serialization.
         pub fn toBytesBe(self: Self) [BytesSize]u8 {
             var non_mont: F.NonMontgomeryDomainFieldElement = undefined;
-            F.fromMontgomery(&non_mont, self.fe);
+            F.fromMontgomery(&non_mont, self.fe.limbs);
             var ret: [BytesSize]u8 = undefined;
             inline for (0..Limbs) |i| {
                 std.mem.writeInt(
@@ -283,7 +291,7 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
         /// Converts a field element from Montgomery form to non-Montgomery representation.
         pub fn fromMontgomery(self: Self) F.NonMontgomeryDomainFieldElement {
             var nonMont: F.NonMontgomeryDomainFieldElement = undefined;
-            F.fromMontgomery(&nonMont, self.fe);
+            F.fromMontgomery(&nonMont, self.fe.limbs);
             return nonMont;
         }
 
@@ -292,8 +300,8 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
         /// Adds the current field element to another field element.
         pub fn add(self: Self, rhs: Self) Self {
             var ret: F.NonMontgomeryDomainFieldElement = undefined;
-            F.add(&ret, self.fe, rhs.fe);
-            return .{ .fe = ret };
+            F.add(&ret, self.fe.limbs, rhs.fe.limbs);
+            return .{ .fe = bigInt(Limbs).init(ret) };
         }
 
         /// Double a field element.
@@ -301,8 +309,8 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
         /// Adds the current field element to itself.
         pub fn double(self: Self) Self {
             var ret: F.NonMontgomeryDomainFieldElement = undefined;
-            F.add(&ret, self.fe, self.fe);
-            return .{ .fe = ret };
+            F.add(&ret, self.fe.limbs, self.fe.limbs);
+            return .{ .fe = bigInt(Limbs).init(ret) };
         }
 
         /// Calculating mod sqrt
@@ -317,8 +325,8 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
         /// Subtracts another field element from the current field element.
         pub fn sub(self: Self, rhs: Self) Self {
             var ret: F.MontgomeryDomainFieldElement = undefined;
-            F.sub(&ret, self.fe, rhs.fe);
-            return .{ .fe = ret };
+            F.sub(&ret, self.fe.limbs, rhs.fe.limbs);
+            return .{ .fe = bigInt(Limbs).init(ret) };
         }
 
         pub fn mod(self: Self, rhs: Self) Self {
@@ -355,10 +363,10 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
         pub fn canUseNoCarryMulOptimization() bool {
             comptime {
                 // Check if all remaining bits are one
-                var all_remaining_bits_are_one = Modulus.fe[Limbs - 1] == std.math.maxInt(u64) >> 1;
+                var all_remaining_bits_are_one = Modulus.limbs[Limbs - 1] == std.math.maxInt(u64) >> 1;
                 for (1..Limbs) |i| {
                     all_remaining_bits_are_one = all_remaining_bits_are_one and
-                        (Modulus.fe[Limbs - i - 1] == std.math.maxInt(u64));
+                        (Modulus.limbs[Limbs - i - 1] == std.math.maxInt(u64));
                 }
 
                 // Return true if both conditions are met
@@ -382,7 +390,7 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
         pub fn modulusHasSpareBit() bool {
             comptime {
                 // Check if the highest bit of the modulus is zero
-                return Modulus.fe[Limbs - 1] >> 63 == 0;
+                return Modulus.limbs[Limbs - 1] >> 63 == 0;
             }
         }
 
@@ -435,17 +443,17 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
             inline for (0..Limbs) |i| {
                 // Perform the first multiplication and accumulation
                 var carry1: u64 = 0;
-                r[0] = arithmetic.mac(r[0], self.fe[0], rhs.fe[i], &carry1);
+                r[0] = arithmetic.mac(r[0], self.fe.limbs[0], rhs.fe.limbs[i], &carry1);
 
                 // Compute the Montgomery factor k and perform the corresponding multiplication and reduction
                 const k: u64 = r[0] *% comptime Self.Inv;
                 var carry2: u64 = 0;
-                arithmetic.macDiscard(r[0], k, comptime Self.Modulus.fe[0], &carry2);
+                arithmetic.macDiscard(r[0], k, comptime Self.Modulus.limbs[0], &carry2);
 
                 // Iterate over the remaining digits and perform the multiplications and accumulations
                 inline for (1..Limbs) |j| {
-                    r[j] = arithmetic.macWithCarry(r[j], self.fe[j], rhs.fe[i], &carry1);
-                    r[j - 1] = arithmetic.macWithCarry(r[j], k, Self.Modulus.fe[j], &carry2);
+                    r[j] = arithmetic.macWithCarry(r[j], self.fe.limbs[j], rhs.fe.limbs[i], &carry1);
+                    r[j - 1] = arithmetic.macWithCarry(r[j], k, Self.Modulus.limbs[j], &carry2);
                 }
 
                 // Add the final carries
@@ -453,10 +461,10 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
             }
 
             // Store the result back into the original object
-            @memcpy(&self.fe, &r);
+            @memcpy(&self.fe.limbs, &r);
 
             // Perform modulus subtraction if needed
-            F.subtractModulus(&self.fe);
+            F.subtractModulus(&self.fe.limbs);
         }
 
         /// Negate a field element.
@@ -464,8 +472,8 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
         /// Negates the value of the current field element.
         pub fn neg(self: *const Self) Self {
             var ret: F.MontgomeryDomainFieldElement = undefined;
-            F.sub(&ret, Self.zero().fe, self.fe);
-            return .{ .fe = ret };
+            F.sub(&ret, Self.zero().fe.limbs, self.fe.limbs);
+            return .{ .fe = bigInt(Limbs).init(ret) };
         }
 
         /// Check if the field element is zero.
@@ -548,7 +556,7 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
             // Perform multiplication
             inline for (0..Limbs - 1) |i| {
                 inline for (i + 1..Limbs) |j| {
-                    r.getBuf(i + j).* = arithmetic.macWithCarry(r.getBuf(i + j).*, self.fe[i], self.fe[j], &carry);
+                    r.getBuf(i + j).* = arithmetic.macWithCarry(r.getBuf(i + j).*, self.fe.limbs[i], self.fe.limbs[j], &carry);
                 }
                 r.buf[1][i] = carry;
                 carry = 0;
@@ -565,7 +573,7 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
 
             // Perform squaring
             inline for (0..Limbs) |i| {
-                r.getBuf(2 * i).* = arithmetic.macWithCarry(r.getBuf(2 * i).*, self.fe[i], self.fe[i], &carry);
+                r.getBuf(2 * i).* = arithmetic.macWithCarry(r.getBuf(2 * i).*, self.fe.limbs[i], self.fe.limbs[i], &carry);
                 carry = arithmetic.adc(u64, r.getBuf(2 * i + 1), 0, carry);
             }
 
@@ -576,19 +584,19 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
             inline for (0..Limbs) |i| {
                 const k: u64 = r.buf[0][i] *% Inv;
                 carry = 0;
-                arithmetic.macDiscard(r.buf[0][i], k, Modulus.fe[0], &carry);
+                arithmetic.macDiscard(r.buf[0][i], k, Modulus.limbs[0], &carry);
 
                 inline for (1..Limbs) |j|
-                    r.getBuf(j + i).* = arithmetic.macWithCarry(r.getBuf(j + i).*, k, Modulus.fe[j], &carry);
+                    r.getBuf(j + i).* = arithmetic.macWithCarry(r.getBuf(j + i).*, k, Modulus.limbs[j], &carry);
 
                 carry2 = arithmetic.adc(u64, &r.buf[1][i], carry, carry2);
             }
 
             // Copy result back to the field element
-            @memcpy(&self.fe, &r.buf[1]);
+            @memcpy(&self.fe.limbs, &r.buf[1]);
 
             // Perform modulus subtraction if needed
-            if (comptime Self.modulusHasSpareBit()) F.subtractModulus(&self.fe);
+            if (comptime Self.modulusHasSpareBit()) F.subtractModulus(&self.fe.limbs);
         }
 
         /// Raise a field element to a power of 2.
@@ -658,13 +666,13 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
         /// Notes:
         ///   - If `b` is greater than `a`, the modulus of the finite field is added to `a` before subtraction to ensure correct arithmetic in a finite field context.
         ///   - The subtraction operation is performed in place, and the result is assigned to `a`.
-        pub fn subAssignBigInt(a: *bigInt(Limbs), b: *const bigInt(Limbs)) void {
+        pub fn subAssign(self: *Self, rhs: *const Self) void {
             // If b > a, add the modulus to `a` first.
-            if (b.cmp(a) == .gt)
-                _ = a.addWithCarryAssign(&bigInt(Limbs).init(Modulus.fe));
+            if (rhs.fe.cmp(&self.fe) == .gt)
+                _ = self.fe.addWithCarryAssign(&Modulus);
 
             // Perform the subtraction operation
-            _ = a.subWithBorrowAssign(b);
+            _ = self.fe.subWithBorrowAssign(&rhs.fe);
         }
 
         /// Computes the multiplicative inverse of a given element in a finite field using the binary Extended Euclidean Algorithm (BEA).
@@ -694,13 +702,11 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
 
             // Constant representing the value 1 in the field
             const o = comptime bigInt(Limbs).one();
-            // Constant representing the modulus of the field
-            const m = bigInt(Limbs).init(Modulus.fe);
 
-            var u = bigInt(Limbs).init(self.fe);
-            var v = bigInt(Limbs).init(Modulus.fe);
-            var b = bigInt(Limbs).init(R2.fe);
-            var c = comptime bigInt(Limbs){};
+            var u = self.fe;
+            var v = Modulus;
+            var b: Self = .{ .fe = R2 };
+            var c = zero();
 
             // Iterate while both u and v are not one
             while (!u.eql(o) and !v.eql(o)) {
@@ -708,14 +714,14 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
                 while (u.isEven()) {
                     u.div2Assign();
 
-                    if (b.isEven()) {
-                        b.div2Assign();
+                    if (b.fe.isEven()) {
+                        b.fe.div2Assign();
                     } else {
-                        const carry = b.addWithCarryAssign(&m);
-                        b.div2Assign();
+                        const carry = b.fe.addWithCarryAssign(&Modulus);
+                        b.fe.div2Assign();
                         // Handle overflow if necessary
                         if (comptime !Self.modulusHasSpareBit() and carry) {
-                            b.limbs[Limbs - 1] |= 1 << 63;
+                            b.fe.limbs[Limbs - 1] |= 1 << 63;
                         }
                     }
                 }
@@ -723,14 +729,14 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
                 // Perform operations while v is even
                 while (v.isEven()) {
                     v.div2Assign();
-                    if (c.isEven()) {
-                        c.div2Assign();
+                    if (c.fe.isEven()) {
+                        c.fe.div2Assign();
                     } else {
-                        const carry = c.addWithCarryAssign(&m);
-                        c.div2Assign();
+                        const carry = c.fe.addWithCarryAssign(&Modulus);
+                        c.fe.div2Assign();
                         // Handle overflow if necessary
                         if (comptime !Self.modulusHasSpareBit() and carry) {
-                            c.limbs[Limbs - 1] |= 1 << 63;
+                            c.fe.limbs[Limbs - 1] |= 1 << 63;
                         }
                     }
                 }
@@ -738,15 +744,15 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
                 // Update based on u vs v values
                 if (v.cmp(&u) == .lt) {
                     _ = u.subWithBorrowAssign(&v);
-                    Self.subAssignBigInt(&b, &c);
+                    b.subAssign(&c);
                 } else {
                     _ = v.subWithBorrowAssign(&u);
-                    Self.subAssignBigInt(&c, &b);
+                    c.subAssign(&b);
                 }
             }
 
             // Return the inverse based on the final values of u and v
-            return if (u.eql(o)) .{ .fe = b.limbs } else .{ .fe = c.limbs };
+            return if (u.eql(o)) b else c;
         }
 
         /// Divide one field element by another.
@@ -760,7 +766,7 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
         ///
         /// Determines whether the current field element is equal to another field element.
         pub fn eql(self: Self, rhs: Self) bool {
-            return std.mem.eql(u64, &self.fe, &rhs.fe);
+            return std.mem.eql(u64, &self.fe.limbs, &rhs.fe.limbs);
         }
 
         /// Convert the field element to a u256 integer.
@@ -768,16 +774,12 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
         /// Converts the field element to a u256 integer.
         pub fn toInt(self: Self) u256 {
             var non_mont: F.NonMontgomeryDomainFieldElement = undefined;
-            F.fromMontgomery(&non_mont, self.fe);
+            F.fromMontgomery(&non_mont, self.fe.limbs);
 
             var bytes: [BytesSize]u8 = [_]u8{0} ** BytesSize;
             F.toBytes(&bytes, non_mont);
 
-            return std.mem.readInt(
-                u256,
-                &bytes,
-                .little,
-            );
+            return std.mem.readInt(u256, &bytes, .little);
         }
 
         /// Try to convert the field element to a u64 if its value is small enough.
@@ -837,8 +839,8 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
         pub fn cmp(self: *const Self, rhs: *const Self) std.math.Order {
             var a_non_mont: F.NonMontgomeryDomainFieldElement = undefined;
             var b_non_mont: F.NonMontgomeryDomainFieldElement = undefined;
-            F.fromMontgomery(&a_non_mont, self.fe);
-            F.fromMontgomery(&b_non_mont, rhs.fe);
+            F.fromMontgomery(&a_non_mont, self.fe.limbs);
+            F.fromMontgomery(&b_non_mont, rhs.fe.limbs);
             _ = std.mem.reverse(u64, a_non_mont[0..]);
             _ = std.mem.reverse(u64, b_non_mont[0..]);
             return std.mem.order(u64, &a_non_mont, &b_non_mont);
@@ -935,40 +937,40 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
                 // Check for overflow
                 var overflow = false;
                 for (Limbs - limbs..Limbs) |i| {
-                    overflow = overflow or (res.fe[i] != 0);
+                    overflow = overflow or (res.fe.limbs[i] != 0);
                 }
-                if (res.fe[Limbs - limbs - 1] > Self.Mask) {
+                if (res.fe.limbs[Limbs - limbs - 1] > Self.Mask) {
                     overflow = true;
                 }
 
                 // Shift
                 var idx = Limbs - 1;
                 while (idx >= limbs) : (idx -= 1) {
-                    res.fe[idx] = res.fe[idx - limbs];
+                    res.fe.limbs[idx] = res.fe.limbs[idx - limbs];
                 }
                 for (0..limbs) |i| {
-                    res.fe[i] = 0;
+                    res.fe.limbs[i] = 0;
                 }
-                res.fe[Limbs - 1] &= Self.Mask;
+                res.fe.limbs[Limbs - 1] &= Self.Mask;
                 return .{ res, overflow };
             }
 
             // Check for overflow
             var overflow = false;
             for (Limbs - limbs..Limbs) |i| {
-                overflow = overflow or (res.fe[i] != 0);
+                overflow = overflow or (res.fe.limbs[i] != 0);
             }
 
             if (std.math.shr(
                 u64,
-                res.fe[Limbs - limbs - 1],
+                res.fe.limbs[Limbs - limbs - 1],
                 64 - bits,
             ) != 0) {
                 overflow = true;
             }
             if (std.math.shl(
                 u64,
-                res.fe[Limbs - limbs - 1],
+                res.fe.limbs[Limbs - limbs - 1],
                 bits,
             ) > Self.Mask) {
                 overflow = true;
@@ -977,26 +979,26 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
             // Shift
             var idx = Limbs - 1;
             while (idx > limbs) : (idx -= 1) {
-                res.fe[idx] = std.math.shl(
+                res.fe.limbs[idx] = std.math.shl(
                     u64,
-                    res.fe[idx - limbs],
+                    res.fe.limbs[idx - limbs],
                     bits,
                 ) | std.math.shr(
                     u64,
-                    res.fe[idx - limbs - 1],
+                    res.fe.limbs[idx - limbs - 1],
                     64 - bits,
                 );
             }
 
-            res.fe[limbs] = std.math.shl(
+            res.fe.limbs[limbs] = std.math.shl(
                 u64,
-                res.fe[0],
+                res.fe.limbs[0],
                 bits,
             );
             for (0..limbs) |i| {
-                res.fe[i] = 0;
+                res.fe.limbs[i] = 0;
             }
-            res.fe[Limbs - 1] &= Self.Mask;
+            res.fe.limbs[Limbs - 1] &= Self.Mask;
             return .{ res, overflow };
         }
 
@@ -1032,7 +1034,7 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
         /// The shifted value with saturation behavior, or `Self.Max` on overflow.
         pub fn saturating_shl(self: Self, rhs: usize) Self {
             const shl = self.overflowing_shl(rhs);
-            return if (!shl[1]) shl[0] else Self.Max;
+            return if (!shl[1]) shl[0] else .{ .fe = Self.Max };
         }
 
         /// Checked left shift by `rhs` bits.
@@ -1083,15 +1085,15 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
                 // Check for overflow
                 var overflow = false;
                 for (0..limbs) |i| {
-                    overflow = overflow or (res.fe[i] != 0);
+                    overflow = overflow or (res.fe.limbs[i] != 0);
                 }
 
                 // Shift
                 for (0..Limbs - limbs) |i| {
-                    res.fe[i] = res.fe[i + limbs];
+                    res.fe.limbs[i] = res.fe.limbs[i + limbs];
                 }
                 for (Limbs - limbs..Limbs) |i| {
-                    res.fe[i] = 0;
+                    res.fe.limbs[i] = 0;
                 }
                 return .{ res, overflow };
             }
@@ -1099,34 +1101,34 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
             // Check for overflow
             var overflow = false;
             for (0..limbs) |i| {
-                overflow = overflow or (res.fe[i] != 0);
+                overflow = overflow or (res.fe.limbs[i] != 0);
             }
             overflow = overflow or (std.math.shr(
                 u64,
-                res.fe[limbs],
+                res.fe.limbs[limbs],
                 bits,
             ) != 0);
 
             // Shift
             for (0..Limbs - limbs - 1) |i| {
-                res.fe[i] = std.math.shr(
+                res.fe.limbs[i] = std.math.shr(
                     u64,
-                    res.fe[i + limbs],
+                    res.fe.limbs[i + limbs],
                     bits,
                 ) | std.math.shl(
                     u64,
-                    res.fe[i + limbs + 1],
+                    res.fe.limbs[i + limbs + 1],
                     64 - bits,
                 );
             }
 
-            res.fe[Limbs - limbs - 1] = std.math.shr(
+            res.fe.limbs[Limbs - limbs - 1] = std.math.shr(
                 u64,
-                res.fe[Limbs - 1],
+                res.fe.limbs[Limbs - 1],
                 bits,
             );
             for (Limbs - limbs..Limbs) |i| {
-                res.fe[i] = 0;
+                res.fe.limbs[i] = 0;
             }
             return .{ res, overflow };
         }
