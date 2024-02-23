@@ -414,25 +414,25 @@ test "Felt252 inv" {
             u256,
             0x733333333333342800000000000000000000000000000000000000000000001,
         ),
-        Felt252.fromInt(u8, 10).inv().?.toInt(),
+        Felt252.fromInt(u8, 10).inverse().?.toInt(),
     );
     try expectEqual(
         @as(
             u256,
             0x538bf4edb6bf78474ef0f1979a0db0bdd364ce7aeda9f3c6c04bea822682ba,
         ),
-        Felt252.fromInt(u256, std.math.maxInt(u256)).inv().?.toInt(),
+        Felt252.fromInt(u256, std.math.maxInt(u256)).inverse().?.toInt(),
     );
     try expectEqual(
         @as(?Felt252, null),
-        Felt252.zero().inv(),
+        Felt252.zero().inverse(),
     );
 }
 
 test "Felt252 batchInv" {
     var out: [2]Felt252 = undefined;
     const in: [2]Felt252 = .{ Felt252.fromInt(u8, 10), Felt252.fromInt(u8, 5) };
-    try Felt252.batchInv(&out, &in);
+    try Felt252.batchinverse(&out, &in);
     try expectEqual(
         @as(
             u256,
@@ -453,7 +453,7 @@ test "Felt252 batchInv with zero" {
     var out: [3]Felt252 = undefined;
     try std.testing.expectError(
         error.CantInvertZeroElement,
-        Felt252.batchInv(&out, &.{ Felt252.fromInt(u8, 10), Felt252.fromInt(u8, 5), Felt252.zero() }),
+        Felt252.batchinverse(&out, &.{ Felt252.fromInt(u8, 10), Felt252.fromInt(u8, 5), Felt252.zero() }),
     );
 }
 
@@ -1067,11 +1067,11 @@ test "Felt252: arithmetic multiplication operations" {
         try expect(zero.mul(&c).eql(zero));
 
         // Inverses
-        try expect(a.mul(&a.inv().?).eql(one));
-        try expect(b.mul(&b.inv().?).eql(one));
-        try expect(c.mul(&c.inv().?).eql(one));
-        try expectEqual(null, zero.inv());
-        try expect(one.inv().?.eql(one));
+        try expect(a.mul(&a.inverse().?).eql(one));
+        try expect(b.mul(&b.inverse().?).eql(one));
+        try expect(c.mul(&c.inverse().?).eql(one));
+        try expectEqual(null, zero.inverse());
+        try expect(one.inverse().?.eql(one));
 
         // Associativity and commutativity simultaneously
         try expect(a.mul(&b).mul(&c).eql(a.mul(&c).mul(&b)));

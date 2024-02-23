@@ -624,7 +624,7 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
         /// Batch inversion of multiple field elements.
         ///
         /// Performs batch inversion of a slice of field elements in place.
-        pub fn batchInv(out: []Self, in: []const Self) !void {
+        pub fn batchinverse(out: []Self, in: []const Self) !void {
             std.debug.assert(out.len == in.len);
 
             var acc = one();
@@ -632,7 +632,7 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
                 out[i] = acc;
                 acc = acc.mul(&in[i]);
             }
-            acc = acc.inv() orelse return error.CantInvertZeroElement;
+            acc = acc.inverse() orelse return error.CantInvertZeroElement;
             for (0..in.len) |i| {
                 out[in.len - i - 1] = out[in.len - i - 1].mul(&acc);
                 acc = acc.mul(&in[in.len - i - 1]);
@@ -688,7 +688,7 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
         ///   - The binary Extended Euclidean Algorithm (BEA) is a general and efficient method for computing multiplicative inverses in finite fields.
         ///   - Montgomery parameters are used to optimize the computation, improving performance on digital computers.
         ///   - Overflow handling is performed to ensure correct arithmetic operations during the inversion process.
-        pub fn inv(self: *const Self) ?Self {
+        pub fn inverse(self: *const Self) ?Self {
             // Check if the input is zero
             if (self.isZero()) return null;
 
@@ -753,7 +753,7 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
         ///
         /// Divides the current field element by another field element.
         pub fn div(self: Self, den: Self) !Self {
-            return self.mul(&(den.inv() orelse return error.DivisionByZero));
+            return self.mul(&(den.inverse() orelse return error.DivisionByZero));
         }
 
         /// Check if two field elements are equal.
@@ -776,7 +776,7 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
             return std.mem.readInt(
                 u256,
                 &bytes,
-                std.builtin.Endian.little,
+                .little,
             );
         }
 

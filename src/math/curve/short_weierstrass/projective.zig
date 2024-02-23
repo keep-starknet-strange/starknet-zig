@@ -959,7 +959,7 @@ test "ProjectivePoint: fuzzing testing of arithmetic multiplication operations" 
         ));
 
         // Inverses
-        try expect(a_projective.mulByScalar(&b.inv().?.mul(&b)).eql(
+        try expect(a_projective.mulByScalar(&b.inverse().?.mul(&b)).eql(
             a_projective,
         ));
     }

@@ -396,7 +396,7 @@ pub const AffinePoint = struct {
         ).add(
             Felt252.one(),
         ).mul(
-            &Felt252.two().mul(&self.y).inv().?,
+            &Felt252.two().mul(&self.y).inverse().?,
         );
 
         // Compute the new x-coordinate of the point after doubling: lambda^2 - 2x
@@ -489,7 +489,7 @@ pub const AffinePoint = struct {
 
         // Compute the inverse of the `z` coordinate of the projective point.
         // Note: `zinv` is always one, which is why we can unwrap the result.
-        const zinv = p.z.inv().?;
+        const zinv = p.z.inverse().?;
 
         // Create and return the resulting affine point.
         return .{
@@ -521,7 +521,7 @@ pub const AffinePoint = struct {
 
         // Compute the inverse of the `z` coordinate of the projective point.
         // Note: `z` is always non zero, so that it must have an inverse in the field.
-        const zinv = p.z.inv().?;
+        const zinv = p.z.inverse().?;
         const zinv_squared = zinv.square();
 
         // Create and return the resulting affine point.
@@ -1259,7 +1259,7 @@ test "AffinePoint: fuzzing testing of arithmetic multiplication operations" {
         ));
 
         // Inverses
-        try expect((try a.mulByScalar(&b.inv().?.mul(&b))).eql(
+        try expect((try a.mulByScalar(&b.inverse().?.mul(&b))).eql(
             a,
         ));
     }
