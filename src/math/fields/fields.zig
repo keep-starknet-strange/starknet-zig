@@ -239,17 +239,7 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
         pub fn toBytesBe(self: Self) [BytesSize]u8 {
             var non_mont: F.NonMontgomeryDomainFieldElement = undefined;
             F.fromMontgomery(&non_mont, self.fe.limbs);
-            var ret: [BytesSize]u8 = undefined;
-            inline for (0..Limbs) |i| {
-                std.mem.writeInt(
-                    u64,
-                    ret[i * 8 .. (i + 1) * 8],
-                    non_mont[Limbs - 1 - i],
-                    .big,
-                );
-            }
-
-            return ret;
+            return bigInt(Limbs).init(non_mont).toBytesBe();
         }
 
         /// Get the min number of bits needed to field element.

@@ -427,6 +427,45 @@ pub fn bigInt(comptime N: usize) type {
             // Return the little-endian byte representation of the big integer
             return buf;
         }
+
+        /// Converts a big integer to a big-endian byte representation.
+        ///
+        /// This function converts a big integer to its big-endian byte representation.
+        /// It iterates through each limb of the big integer, starting from the most significant limb,
+        /// and generates a byte representation where each byte corresponds to a single limb.
+        ///
+        /// Parameters:
+        ///   - self: The big integer to be converted to a big-endian byte representation.
+        ///
+        /// Returns:
+        ///   - An array of bytes representing the big-endian byte representation of the big integer.
+        ///
+        /// Notes:
+        ///   - The function generates a byte representation where the most significant byte of the big integer corresponds to the first byte of the array.
+        ///   - Each limb of the big integer contributes 8 bytes to the overall byte representation.
+        ///   - The resulting byte representation is big-endian, with the most significant bytes appearing first.
+        ///   - Inline loops are used for performance optimization.
+        ///   - The function returns an array of bytes representing the byte representation of the big integer.
+        pub fn toBytesBe(self: Self) [@sizeOf(u256)]u8 {
+            // Initialize an array to hold the byte representation
+            var buf: [@sizeOf(u256)]u8 = undefined;
+
+            // Iterate through each limb of the big integer
+            inline for (0..N) |i| {
+                // Calculate the starting index for the current limb in the big-endian byte representation
+                const idx_bytes = i * 8;
+                // Write the current limb to the byte representation array using big-endian byte order
+                std.mem.writeInt(
+                    u64,
+                    buf[idx_bytes .. idx_bytes + 8],
+                    self.limbs[N - 1 - i],
+                    .big,
+                );
+            }
+
+            // Return the big-endian byte representation of the big integer
+            return buf;
+        }
     };
 }
 
