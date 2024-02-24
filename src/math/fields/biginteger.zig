@@ -388,6 +388,45 @@ pub fn bigInt(comptime N: usize) type {
             // Return the big-endian bit representation of the big integer
             return bits;
         }
+
+        /// Converts a big integer to a little-endian byte representation.
+        ///
+        /// This function converts a big integer to its little-endian byte representation.
+        /// It iterates through each limb of the big integer, starting from the least significant limb,
+        /// and generates a byte representation where each byte corresponds to a single limb.
+        ///
+        /// Parameters:
+        ///   - self: A pointer to the big integer to be converted to a little-endian byte representation.
+        ///
+        /// Returns:
+        ///   - An array of bytes representing the little-endian byte representation of the big integer.
+        ///
+        /// Notes:
+        ///   - The function generates a byte representation where the least significant byte of the big integer corresponds to the first byte of the array.
+        ///   - Each limb of the big integer contributes 8 bytes to the overall byte representation.
+        ///   - The resulting byte representation is little-endian, with the least significant bytes appearing first.
+        ///   - Inline loops are used for performance optimization.
+        ///   - The function returns an array of bytes representing the byte representation of the big integer.
+        pub fn toBytesLe(self: *const Self) [@sizeOf(u256)]u8 {
+            // Initialize an array to hold the byte representation
+            var buf: [@sizeOf(u256)]u8 = undefined;
+
+            // Iterate through each limb of the big integer
+            inline for (0..N) |i| {
+                // Calculate the starting index for the current limb in the little-endian byte representation
+                const idx_bytes = i * 8;
+                // Write the current limb to the byte representation array using little-endian byte order
+                std.mem.writeInt(
+                    u64,
+                    buf[idx_bytes .. idx_bytes + 8],
+                    self.limbs[i],
+                    .little,
+                );
+            }
+
+            // Return the little-endian byte representation of the big integer
+            return buf;
+        }
     };
 }
 

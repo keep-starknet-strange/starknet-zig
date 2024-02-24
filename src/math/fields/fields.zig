@@ -227,20 +227,10 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
         /// Convert the field element to a byte array.
         ///
         /// This function converts the field element to a byte array for serialization.
-        pub fn toBytes(self: Self) [BytesSize]u8 {
+        pub fn toBytesLe(self: Self) [BytesSize]u8 {
             var non_mont: F.NonMontgomeryDomainFieldElement = undefined;
             F.fromMontgomery(&non_mont, self.fe.limbs);
-            var ret: [BytesSize]u8 = undefined;
-            inline for (0..Limbs) |i| {
-                std.mem.writeInt(
-                    u64,
-                    ret[i * 8 .. (i + 1) * 8],
-                    non_mont[i],
-                    .little,
-                );
-            }
-
-            return ret;
+            return bigInt(Limbs).init(non_mont).toBytesLe();
         }
 
         /// Convert the field element to a big-endian byte array.
@@ -772,7 +762,7 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
             F.fromMontgomery(&non_mont, self.fe.limbs);
 
             var bytes: [BytesSize]u8 = [_]u8{0} ** BytesSize;
-            F.toBytes(&bytes, non_mont);
+            F.toBytesLe(&bytes, non_mont);
 
             return std.mem.readInt(u256, &bytes, .little);
         }

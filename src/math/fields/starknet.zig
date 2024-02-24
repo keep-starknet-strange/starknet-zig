@@ -259,7 +259,7 @@ test "Felt252 fromBytes" {
     );
 }
 
-test "Felt252 toBytes" {
+test "Felt252 toBytesLe" {
     const expected = [_]u8{
         0x4E,
         0x5F,
@@ -296,7 +296,7 @@ test "Felt252 toBytes" {
     };
     try expectEqual(
         expected,
-        Felt252.fromInt(u256, 0x96f8e63ba9b2bcea770f6a07c669ba51ce76df2f67195f5f5f5f5f5f5f5f4e).toBytes(),
+        Felt252.fromInt(u256, 0x96f8e63ba9b2bcea770f6a07c669ba51ce76df2f67195f5f5f5f5f5f5f5f4e).toBytesLe(),
     );
 }
 
