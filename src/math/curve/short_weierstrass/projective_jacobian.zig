@@ -602,12 +602,12 @@ pub const ProjectivePointJacobian = struct {
     /// # Errors
     ///
     /// Returns an error if any error occurs during the multiplication operation.
-    pub fn mulByBitsBe(self: *const Self, bits: [@bitSizeOf(u256)]u1) Self {
+    pub fn mulByBitsBe(self: *const Self, bits: [@bitSizeOf(u256)]bool) Self {
         // Initialize the product as the identity element.
         var product = ProjectivePointJacobian.identity();
 
         // Find the index of the first set bit in the scalar.
-        const first_one = std.mem.indexOfScalar(u1, &bits, 1) orelse @bitSizeOf(u256);
+        const first_one = std.mem.indexOfScalar(bool, &bits, true) orelse @bitSizeOf(u256);
 
         // Iterate over the scalar bits starting from the first set bit.
         for (bits[first_one..]) |bit| {
@@ -615,7 +615,7 @@ pub const ProjectivePointJacobian = struct {
             product.doubleAssign();
 
             // Conditionally add the original point if the corresponding bit is set.
-            if (bit == 1) product.addAssign(self);
+            if (bit) product.addAssign(self);
         }
 
         // Return the resulting product after scalar multiplication.

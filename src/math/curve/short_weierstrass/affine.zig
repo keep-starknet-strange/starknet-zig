@@ -549,18 +549,18 @@ pub const AffinePoint = struct {
     /// # Errors
     ///
     /// Returns an error if any error occurs during the multiplication operation.
-    pub fn mulByBitsBe(self: *const Self, bits: [@bitSizeOf(u256)]u1) !Self {
+    pub fn mulByBitsBe(self: *const Self, bits: [@bitSizeOf(u256)]bool) !Self {
         var product = AffinePoint.identity();
 
         // Find the index of the first one bit in the bit slice.
-        const first_one = std.mem.indexOfScalar(u1, &bits, 1) orelse @bitSizeOf(u256);
+        const first_one = std.mem.indexOfScalar(bool, &bits, true) orelse @bitSizeOf(u256);
 
         // Iterate over the bits in the scalar value.
         for (bits[first_one..]) |bit| {
             // Double the current product.
             product.doubleAssign();
             // If the current bit is one, add the original affine point to the product.
-            if (bit == 1) try product.addAssign(self);
+            if (bit) try product.addAssign(self);
         }
 
         return product;

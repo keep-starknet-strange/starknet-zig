@@ -1074,26 +1074,26 @@ test "Felt252 wrapping_shr" {
 
 test "Felt252: toBitsLe" {
     const one = Felt252.one();
-    var bits_one = [_]u1{0} ** @bitSizeOf(u256);
-    bits_one[0] = 1;
-    try expectEqualSlices(u1, &bits_one, &one.toBitsLe());
+    var bits_one = [_]bool{false} ** @bitSizeOf(u256);
+    bits_one[0] = true;
+    try expectEqualSlices(bool, &bits_one, &one.toBitsLe());
 
     const max_u64 = Felt252.fromInt(u64, std.math.maxInt(u64));
-    var bits_max_u64 = [_]u1{0} ** @bitSizeOf(u256);
-    for (0..64) |i| bits_max_u64[i] = 1;
-    try expectEqualSlices(u1, &bits_max_u64, &max_u64.toBitsLe());
+    var bits_max_u64 = [_]bool{false} ** @bitSizeOf(u256);
+    for (0..64) |i| bits_max_u64[i] = true;
+    try expectEqualSlices(bool, &bits_max_u64, &max_u64.toBitsLe());
 }
 
 test "Felt252: toBitsBe" {
     const one = Felt252.one();
-    var bits_one = [_]u1{0} ** @bitSizeOf(u256);
-    bits_one[255] = 1;
-    try expectEqualSlices(u1, &bits_one, &one.toBitsBe());
+    var bits_one = [_]bool{false} ** @bitSizeOf(u256);
+    bits_one[255] = true;
+    try expectEqualSlices(bool, &bits_one, &one.toBitsBe());
 
     const max_u64 = Felt252.fromInt(u64, std.math.maxInt(u64));
-    var bits_max_u64 = [_]u1{0} ** @bitSizeOf(u256);
-    for (3 * 64..256) |i| bits_max_u64[i] = 1;
-    try expectEqualSlices(u1, &bits_max_u64, &max_u64.toBitsBe());
+    var bits_max_u64 = [_]bool{false} ** @bitSizeOf(u256);
+    for (3 * 64..256) |i| bits_max_u64[i] = true;
+    try expectEqualSlices(bool, &bits_max_u64, &max_u64.toBitsBe());
 }
 
 test "Felt252: arithmetic addition operations" {

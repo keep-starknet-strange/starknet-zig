@@ -316,6 +316,78 @@ pub fn bigInt(comptime N: usize) type {
             // Compare the big integers using byte-wise comparison
             return std.mem.order(u64, &a, &b);
         }
+
+        /// Converts a big integer to a little-endian bit representation.
+        ///
+        /// This function converts a big integer to its little-endian bit representation.
+        /// It iterates through each limb of the big integer, starting from the least significant limb,
+        /// and generates a bit representation where each bit corresponds to a single limb.
+        ///
+        /// Parameters:
+        ///   - self: A pointer to the big integer to be converted to a little-endian bit representation.
+        ///
+        /// Returns:
+        ///   - An array of boolean values representing the little-endian bit representation of the big integer.
+        ///
+        /// Notes:
+        ///   - The function generates a bit representation where the least significant bit of the big integer corresponds to the first bit of the array.
+        ///   - Each limb of the big integer contributes 64 bits to the overall bit representation.
+        ///   - The resulting bit representation is little-endian, with the least significant bits appearing first.
+        ///   - Inline loops are used for performance optimization.
+        ///   - The function returns an array of boolean values representing the bit representation of the big integer.
+        pub fn toBitsLe(self: *const Self) [N * 64]bool {
+            // Initialize an array to hold the bit representation
+            var bits = [_]bool{false} ** (N * 64);
+
+            // Iterate through each limb of the big integer
+            inline for (0..N) |idx_limb| {
+                // Calculate the starting index for the current limb
+                const i = idx_limb * 64;
+                // Iterate through each bit of the current limb
+                inline for (0..64) |ind_bit|
+                    // Extract the bit value and assign it to the corresponding position in the bit representation array
+                    bits[i + ind_bit] = (self.limbs[idx_limb] >> ind_bit) & 1 == 1;
+            }
+
+            // Return the little-endian bit representation of the big integer
+            return bits;
+        }
+
+        /// Converts a big integer to a big-endian bit representation.
+        ///
+        /// This function converts a big integer to its big-endian bit representation.
+        /// It iterates through each limb of the big integer, starting from the most significant limb,
+        /// and generates a bit representation where each bit corresponds to a single limb.
+        ///
+        /// Parameters:
+        ///   - self: A pointer to the big integer to be converted to a big-endian bit representation.
+        ///
+        /// Returns:
+        ///   - An array of boolean values representing the big-endian bit representation of the big integer.
+        ///
+        /// Notes:
+        ///   - The function generates a bit representation where the most significant bit of the big integer corresponds to the first bit of the array.
+        ///   - Each limb of the big integer contributes 64 bits to the overall bit representation.
+        ///   - The resulting bit representation is big-endian, with the most significant bits appearing first.
+        ///   - Inline loops are used for performance optimization.
+        ///   - The function returns an array of boolean values representing the bit representation of the big integer.
+        pub fn toBitsBe(self: *const Self) [N * 64]bool {
+            // Initialize an array to hold the bit representation
+            var bits = [_]bool{false} ** (N * 64);
+
+            // Iterate through each limb of the big integer
+            inline for (0..N) |idx_limb| {
+                // Calculate the starting index for the current limb in the big-endian bit representation
+                const pre_index = (N - idx_limb - 1) * 64 + 63;
+                // Iterate through each bit of the current limb
+                inline for (0..64) |ind_bit|
+                    // Calculate the index in the bit representation array and extract the bit value
+                    bits[pre_index - ind_bit] = (self.limbs[idx_limb] >> ind_bit) & 1 == 1;
+            }
+
+            // Return the big-endian bit representation of the big integer
+            return bits;
+        }
     };
 }
 

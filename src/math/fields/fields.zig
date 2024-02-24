@@ -216,25 +216,12 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
         /// Convert the field element to a bits little endian array.
         ///
         /// This function converts the field element to a byte array for serialization.
-        pub fn toBitsLe(self: Self) [@bitSizeOf(u256)]u1 {
-            var bits = [_]u1{0} ** @bitSizeOf(u256);
-            const nmself = self.fromMontgomery();
-
-            inline for (0..Limbs) |ind_element| {
-                inline for (0..64) |ind_bit| {
-                    bits[ind_element * 64 + ind_bit] = @intCast(
-                        (nmself[ind_element] >> ind_bit) & 1,
-                    );
-                }
-            }
-
-            return bits;
+        pub fn toBitsLe(self: Self) [@bitSizeOf(u256)]bool {
+            return bigInt(Limbs).init(self.fromMontgomery()).toBitsLe();
         }
 
-        pub fn toBitsBe(self: Self) [@bitSizeOf(u256)]u1 {
-            var bits_le = self.toBitsLe();
-            std.mem.reverse(u1, &bits_le);
-            return bits_le;
+        pub fn toBitsBe(self: Self) [@bitSizeOf(u256)]bool {
+            return bigInt(Limbs).init(self.fromMontgomery()).toBitsBe();
         }
 
         /// Convert the field element to a byte array.
