@@ -467,33 +467,70 @@ pub fn bigInt(comptime N: usize) type {
             return buf;
         }
 
-        /// Returns the number of significant bits in the big integer.
+        /// Creates a big integer from a byte array in little-endian order.
         ///
-        /// This function calculates the number of significant bits in the given big integer `self`.
-        /// It iterates through the limbs of the big integer from the most significant to the least significant,
-        /// checking each limb for non-zero values to determine the number of significant bits.
-        /// If a non-zero limb is found, the function calculates the number of significant bits in that limb
-        /// using the `@clz` (count leading zeros) built-in function and returns the total number of bits up to that limb.
-        /// If all limbs are zero, indicating that the big integer is zero, the function returns zero.
+        /// This function constructs a big integer from a byte array by converting each set of 8 bytes
+        /// (corresponding to one limb) into a u64 integer and storing it in the big integer's limbs array.
+        /// The byte array is assumed to represent the limbs of the big integer in little-endian order.
         ///
         /// Parameters:
-        ///   - self: A pointer to the big integer for which the number of significant bits will be calculated.
+        ///   - bytes: A byte array representing the limbs of the big integer in little-endian order.
+        ///
+        /// Returns:
+        ///   - A big integer constructed from the provided byte array.
+        pub fn fromBytesLe(bytes: [@sizeOf(u256)]u8) Self {
+            // Initialize a new big integer with all limbs set to zero.
+            var r: Self = .{};
+
+            // Iterate through each limb and populate it with data from the byte array.
+            inline for (0..N) |i| {
+                // Calculate the index of the first byte of the current limb.
+                const idx_byte = i * 8;
+
+                // Read 8 bytes from the byte array and convert them to a u64 integer in little-endian order.
+                // Store the resulting u64 integer in the current limb of the big integer.
+                r.limbs[i] = std.mem.readInt(u64, bytes[idx_byte .. idx_byte + 8], .little);
+            }
+
+            // Return the constructed big integer.
+            return r;
+        }
+
+        /// Computes the number of significant bits in the big integer.
+        ///
+        /// This function calculates the number of significant bits in the big integer by iterating through each limb
+        /// from the most significant to the least significant. It checks each limb to determine if it is non-zero,
+        /// and if so, calculates the number of significant bits in that limb using the `@clz` builtin function.
+        /// The total number of bits in the big integer is then computed by multiplying the number of significant
+        /// bits in the non-zero limb by the size of a u64 and subtracting the number of leading zeros.
+        ///
+        /// Parameters:
+        ///   - self: A pointer to the big integer for which the number of significant bits will be computed.
         ///
         /// Returns:
         ///   - The number of significant bits in the big integer.
         ///
         /// Notes:
-        ///   - The number of significant bits represents the minimum number of bits required to represent the big integer.
-        ///   - This function provides a measure of the precision or magnitude of the big integer.
-        ///   - It efficiently calculates the number of significant bits by iterating through the limbs from the most significant to the least significant.
+        ///   - This function iterates through each limb of the big integer from the most significant to the least significant.
+        ///   - It checks each limb to determine if it is non-zero, indicating the presence of significant bits.
+        ///   - If all limbs are zero, indicating that the big integer is zero, the function returns zero.
+        ///   - The number of significant bits is computed by subtracting the number of leading zeros from the total number of bits.
+        ///   - Inline loops are used for performance optimization.
+        ///   - The result represents the number of significant bits in the big integer, excluding leading zeros.
+        ///   - This function is useful for determining the bit length of a big integer, which is important for various arithmetic operations.
         pub fn numBits(self: Self) u64 {
+            // Determine the index of the most significant limb.
+            const max_limb = N - 1;
+
             // Iterate through each limb from the most significant to the least significant.
-            inline for (0..N) |i|
+            inline for (0..N) |i| {
                 // Check if the current limb is non-zero.
-                if (self.limbs[N - 1 - i] != 0)
+                if (self.limbs[max_limb - i] != 0) {
                     // Calculate the number of significant bits in the non-zero limb using @clz.
                     // Subtract the number of leading zeros from the total number of bits in a u64.
-                    return (N - i) * @bitSizeOf(u64) - @clz(self.limbs[N - 1 - i]);
+                    return (N - i) * @bitSizeOf(u64) - @clz(self.limbs[max_limb - i]);
+                }
+            }
 
             // If all limbs are zero, return zero to indicate that the big integer is zero.
             return 0;

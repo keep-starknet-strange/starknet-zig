@@ -210,7 +210,7 @@ test "Felt252 isOne" {
     try expect(!Felt252.fromInt(u8, 10).isOne());
 }
 
-test "Felt252 fromBytes" {
+test "Felt252 fromBytesLe" {
     const a: [FELT_BYTE_SIZE]u8 = .{
         0x4E,
         0x5F,
@@ -250,12 +250,12 @@ test "Felt252 fromBytes" {
             u256,
             0x96f8e63ba9b2bcea770f6a07c669ba51ce76df2f67195f5f5f5f5f5f5f5f4e,
         ),
-        Felt252.fromBytes(a).toInt(),
+        Felt252.fromBytesLe(a).toInt(),
     );
 
     try expectEqual(
         Felt252.fromInt(u256, 0x96f8e63ba9b2bcea770f6a07c669ba51ce76df2f67195f5f5f5f5f5f5f5f4e),
-        Felt252.fromBytes(a),
+        Felt252.fromBytesLe(a),
     );
 }
 
