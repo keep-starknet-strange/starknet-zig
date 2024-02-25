@@ -183,7 +183,6 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
         pub fn fromBytesLe(bytes: [BytesSize]u8) Self {
             var ret: Self = undefined;
             F.toMontgomery(&ret.fe.limbs, bigInt(Limbs).fromBytesLe(bytes).limbs);
-
             return ret;
         }
 
@@ -191,17 +190,8 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
         ///
         /// Converts a byte array into a field element in Montgomery representation.
         pub fn fromBytesBe(bytes: [BytesSize]u8) Self {
-            var non_mont: F.NonMontgomeryDomainFieldElement = undefined;
-            inline for (0..Limbs) |i| {
-                non_mont[Limbs - 1 - i] = std.mem.readInt(
-                    u64,
-                    bytes[i * 8 .. (i + 1) * 8],
-                    .big,
-                );
-            }
             var ret: Self = undefined;
-            F.toMontgomery(&ret.fe.limbs, non_mont);
-
+            F.toMontgomery(&ret.fe.limbs, bigInt(Limbs).fromBytesBe(bytes).limbs);
             return ret;
         }
 

@@ -496,6 +496,35 @@ pub fn bigInt(comptime N: usize) type {
             return r;
         }
 
+        /// Creates a big integer from a byte array in big-endian order.
+        ///
+        /// This function constructs a big integer from a byte array by converting each set of 8 bytes
+        /// (corresponding to one limb) into a u64 integer and storing it in the big integer's limbs array.
+        /// The byte array is assumed to represent the limbs of the big integer in big-endian order.
+        ///
+        /// Parameters:
+        ///   - bytes: A byte array representing the limbs of the big integer in big-endian order.
+        ///
+        /// Returns:
+        ///   - A big integer constructed from the provided byte array.
+        pub fn fromBytesBe(bytes: [@sizeOf(u256)]u8) Self {
+            // Initialize a new big integer with all limbs set to zero.
+            var r: Self = .{};
+
+            // Iterate through each limb and populate it with data from the byte array.
+            inline for (0..N) |i| {
+                // Calculate the index of the first byte of the current limb.
+                const idx_byte = i * 8;
+
+                // Read 8 bytes from the byte array and convert them to a u64 integer in big-endian order.
+                // Store the resulting u64 integer in the current limb of the big integer.
+                r.limbs[N - 1 - i] = std.mem.readInt(u64, bytes[idx_byte .. idx_byte + 8], .big);
+            }
+
+            // Return the constructed big integer.
+            return r;
+        }
+
         /// Computes the number of significant bits in the big integer.
         ///
         /// This function calculates the number of significant bits in the big integer by iterating through each limb
