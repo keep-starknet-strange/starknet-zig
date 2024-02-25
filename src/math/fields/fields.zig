@@ -21,7 +21,6 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
         // One before the modulus
         pub const MaxField: bigInt(Limbs) = bigInt(Limbs).init(.{ 32, 0, 0, 544 });
         // Modulus in non Montgomery format
-        // pub const Modulus: Self = .{ .fe = .{ 1, 0, 0, 576460752303423505 } };
         pub const Modulus: bigInt(Limbs) = bigInt(Limbs).init(.{ 1, 0, 0, 576460752303423505 });
         /// Number of bits needed to represent a field element with the given modulo.
         pub const BitSize = @bitSizeOf(u256) - @clz(modulo);
@@ -245,15 +244,6 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
             var nonMont: F.NonMontgomeryDomainFieldElement = undefined;
             F.fromMontgomery(&nonMont, self.fe.limbs);
             return nonMont;
-        }
-
-        /// Add two field elements.
-        ///
-        /// Adds the current field element to another field element.
-        pub fn add(self: Self, rhs: Self) Self {
-            var ret: F.NonMontgomeryDomainFieldElement = undefined;
-            F.add(&ret, self.fe.limbs, rhs.fe.limbs);
-            return .{ .fe = bigInt(Limbs).init(ret) };
         }
 
         /// Double a field element.
@@ -592,6 +582,111 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
 
         pub fn rand(r: std.Random) Self {
             return Self.fromInt(u256, r.int(u256));
+        }
+
+        /// Checks if the field element is greater than or equal to the modulus.
+        ///
+        /// This function compares the field element `self` with the modulus of the finite field.
+        /// It returns true if `self` is greater than or equal to the modulus, and false otherwise.
+        ///
+        /// Parameters:
+        ///   - self: A pointer to the field element to be checked.
+        ///
+        /// Returns:
+        ///   - true if the field element is greater than or equal to the modulus, false otherwise.
+        pub fn isGeModulus(self: *const Self) bool {
+            return self.fe.ge(&Modulus);
+        }
+
+        /// Subtracts the modulus from the field element in place.
+        ///
+        /// This function subtracts the modulus from the field element `self` if `self` is greater than or equal to the modulus.
+        /// It performs the subtraction operation in place and modifies `self`.
+        ///
+        /// Parameters:
+        ///   - self: A pointer to the field element from which the modulus will be subtracted.
+        ///
+        /// Returns:
+        ///   - void
+        ///
+        /// Notes:
+        ///   - This function modifies the field element in place.
+        pub fn subModulusAssign(self: *Self) void {
+            if (self.isGeModulus())
+                _ = self.fe.subWithBorrowAssign(&Modulus);
+        }
+
+        /// Subtracts the modulus from the field element with carry in place.
+        ///
+        /// This function subtracts the modulus from the field element `self` with an optional carry bit.
+        /// If the `carry` parameter is true or if `self` is greater than or equal to the modulus, the subtraction is performed.
+        /// It performs the subtraction operation in place and modifies `self`.
+        ///
+        /// Parameters:
+        ///   - self: A pointer to the field element from which the modulus will be subtracted.
+        ///   - carry: A boolean flag indicating whether there was a carry from a previous operation.
+        ///
+        /// Returns:
+        ///   - void
+        ///
+        /// Notes:
+        ///   - This function modifies the field element in place.
+        pub fn subModulusWithCarryAssign(self: *Self, carry: bool) void {
+            if (carry or self.isGeModulus())
+                _ = self.fe.subWithBorrowAssign(&Modulus);
+        }
+
+        /// Adds a field element to another field element and returns the result.
+        ///
+        /// This function takes a pointer to the first field element (`self`) and adds another field element (`rhs`) to it.
+        /// It then returns the result of the addition operation as a new field element.
+        ///
+        /// Parameters:
+        ///   - self: A pointer to the first field element.
+        ///   - rhs: The second field element to be added to the first.
+        ///
+        /// Returns:
+        ///   - The result of the addition operation as a new field element.
+        pub fn add(self: *const Self, rhs: Self) Self {
+            // Dereference the pointer to obtain the actual field element.
+            var a = self.*;
+            // Perform the addition operation by calling the `addAssign` method.
+            a.addAssign(&rhs);
+            // Return the result of the addition operation.
+            return a;
+        }
+
+        /// Adds a field element to the current field element and assigns the result.
+        ///
+        /// This function takes a pointer to the current field element (`self`) and adds another field element (`rhs`) to it.
+        /// It performs the addition operation in place, modifying the current field element.
+        ///
+        /// After the addition, if the result exceeds the modulus, it is reduced by subtracting the modulus to ensure it remains within the finite field.
+        ///
+        /// Parameters:
+        ///   - self: A pointer to the current field element to which the addition result will be assigned.
+        ///   - rhs: A pointer to the field element to be added.
+        ///
+        /// Returns:
+        ///   - void
+        ///
+        /// Notes:
+        ///   - This function modifies the current field element in place.
+        ///   - If the addition result exceeds the modulus, it is reduced to remain within the finite field.
+        pub fn addAssign(self: *Self, rhs: *const Self) void {
+            // Perform the addition operation, ensuring it does not exceed the backing capacity.
+            const carry = self.fe.addWithCarryAssign(&rhs.fe);
+
+            // Check if the result needs to be reduced modulo the modulus.
+            // If the modulus has a spare bit (indicating it's not a power of two), reduction is necessary.
+            if (comptime Self.modulusHasSpareBit()) {
+                // Reduce the result by subtracting the modulus to ensure it remains within the finite field.
+                self.subModulusAssign();
+            } else {
+                // If there was a carry during addition or the result exceeds the modulus,
+                // reduce the result modulo the modulus to maintain field integrity.
+                self.subModulusWithCarryAssign(carry);
+            }
         }
 
         /// Subtracts a field element from another field element.
