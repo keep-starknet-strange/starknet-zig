@@ -257,21 +257,21 @@ pub const ProjectivePointJacobian = struct {
         const zz = self.z.square();
 
         // Calculate 2*((X1+YY)^2-XX-YYYY)
-        const s = self.x.add(yy).square().sub(xx).sub(yyyy).double();
+        const s = self.x.add(yy).square().sub(&xx).sub(&yyyy).double();
 
         // Calculate 3*XX+a*ZZ^2
         const m = xx.double().add(xx).add(CurveParams.ALPHA.mul(&zz.square()));
 
         // Calculate T = M^2-2*S
         // X3 = T
-        self.x = m.square().sub(s.double());
+        self.x = m.square().sub(&s.double());
 
         // Calculate Z3 = 2*Y1*Z1
         // This is a faster way to compute (Y1+Z1)^2-YY-ZZ
         self.z = self.z.mul(&self.y).double();
 
         // Calculate Y3 = M*(S-X3)-8*YYYY
-        self.y = s.sub(self.x).mul(&m).sub(yyyy.double().double().double());
+        self.y = s.sub(&self.x).mul(&m).sub(&yyyy.double().double().double());
     }
 
     /// Adds another projective point to this point and returns the result.
@@ -466,7 +466,7 @@ pub const ProjectivePointJacobian = struct {
         }
 
         // H = U2-X1
-        const h = u_2.sub(self.x);
+        const h = u_2.sub(&self.x);
 
         // HH = H^2
         const hh = h.square();
@@ -478,16 +478,16 @@ pub const ProjectivePointJacobian = struct {
         const j = h.neg().mul(&i);
 
         // r = 2*(S2-Y1)
-        const r = s2.sub(self.y).double();
+        const r = s2.sub(&self.y).double();
 
         // V = X1*I
         const v = self.x.mul(&i);
 
         // X3 = r^2 + J - 2*V
-        self.x = r.square().add(j).sub(v.double());
+        self.x = r.square().add(j).sub(&v.double());
 
         // Y3 = r*(V-X3) + 2*Y1*J
-        self.y = r.mul(&v.sub(self.x)).add(self.y.double().mul(&j));
+        self.y = r.mul(&v.sub(&self.x)).add(self.y.double().mul(&j));
 
         // Z3 = 2 * Z1 * H;
         // Can alternatively be computed as (Z1+H)^2-Z1Z1-HH, but the latter is slower.
@@ -561,7 +561,7 @@ pub const ProjectivePointJacobian = struct {
         // If we're adding -a and a together, self.z becomes zero as H becomes zero.
 
         // H = U2-U1
-        const h = u_2.sub(u_1);
+        const h = u_2.sub(&u_1);
 
         // I = (2*H)^2
         const i = h.double().square();
@@ -570,16 +570,16 @@ pub const ProjectivePointJacobian = struct {
         const j = h.neg().mul(&i);
 
         // r = 2*(S2-S1)
-        const r = s2.sub(s1).double();
+        const r = s2.sub(&s1).double();
 
         // V = U1*I
         const v = u_1.mul(&i);
 
         // X3 = r^2 + J - 2*V
-        self.x = r.square().add(j).sub(v.double());
+        self.x = r.square().add(j).sub(&v.double());
 
         // Y3 = r*(V - X3) + 2*S1*J
-        self.y = r.mul(&v.sub(self.x)).add(s1.double().mul(&j));
+        self.y = r.mul(&v.sub(&self.x)).add(s1.double().mul(&j));
 
         // Z3 = ((Z1+Z2)^2 - Z1Z1 - Z2Z2)*H
         // This is equal to Z3 = 2 * Z1 * Z2 * H, and computing it this way is faster.

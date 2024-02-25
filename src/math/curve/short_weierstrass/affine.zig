@@ -347,13 +347,13 @@ pub const AffinePoint = struct {
 
         // Calculate the slope of the line passing through the two points.
         // l = (y2-y1)/(x2-x1)
-        const lambda = try rhs.y.sub(self.y).div(rhs.x.sub(self.x));
+        const lambda = try rhs.y.sub(&self.y).div(rhs.x.sub(&self.x));
 
         // Compute x-coordinate of the resulting point: lambda^2 - x1 - x2
-        const result_x = lambda.square().sub(self.x).sub(rhs.x);
+        const result_x = lambda.square().sub(&self.x).sub(&rhs.x);
 
         // Compute y-coordinate of the resulting point: lambda * (x1 - x3) - y1
-        self.y = lambda.mul(&self.x.sub(result_x)).sub(self.y);
+        self.y = lambda.mul(&self.x.sub(&result_x)).sub(&self.y);
 
         // Update the x-coordinate of this point to the computed x-coordinate of the resulting point.
         self.x = result_x;
@@ -401,10 +401,10 @@ pub const AffinePoint = struct {
         );
 
         // Compute the new x-coordinate of the point after doubling: lambda^2 - 2x
-        const result_x = lambda.mul(&lambda).sub(self.x).sub(self.x);
+        const result_x = lambda.mul(&lambda).sub(&self.x).sub(&self.x);
 
         // Compute the new y-coordinate of the point after doubling: lambda * (x - result_x) - y
-        self.y = lambda.mul(&self.x.sub(result_x)).sub(self.y);
+        self.y = lambda.mul(&self.x.sub(&result_x)).sub(&self.y);
 
         // Update the coordinates of the point with the new values
         self.x = result_x;

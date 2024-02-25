@@ -272,15 +272,6 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
             return if (v[2]) Self.fromInt(u256, @intCast(v[0])) else null;
         }
 
-        /// Subtract one field element from another.
-        ///
-        /// Subtracts another field element from the current field element.
-        pub fn sub(self: Self, rhs: Self) Self {
-            var ret: F.MontgomeryDomainFieldElement = undefined;
-            F.sub(&ret, self.fe.limbs, rhs.fe.limbs);
-            return .{ .fe = bigInt(Limbs).init(ret) };
-        }
-
         pub fn mod(self: Self, rhs: Self) Self {
             return Self.fromInt(
                 u256,
@@ -601,6 +592,31 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
 
         pub fn rand(r: std.Random) Self {
             return Self.fromInt(u256, r.int(u256));
+        }
+
+        /// Subtracts a field element from another field element.
+        ///
+        /// This function subtracts a field element `rhs` from another field element `self`.
+        /// It dereferences the pointers `self` and `rhs` to obtain the actual field elements,
+        /// performs the subtraction operation using the `subAssign` function, and returns the result.
+        ///
+        /// Parameters:
+        ///   - self: A pointer to the first field element from which the second field element will be subtracted.
+        ///   - rhs: A pointer to the second field element that will be subtracted from the first field element.
+        ///
+        /// Returns:
+        ///   - The result of the subtraction operation as a new field element.
+        ///
+        /// Notes:
+        ///   - This function does not modify the original field elements; it only performs the subtraction operation.
+        ///   - The subtraction operation is performed using the `subAssign` function, which modifies the first field element in place.
+        pub fn sub(self: *const Self, rhs: *const Self) Self {
+            // Dereference the pointer to obtain the actual field element
+            var a = self.*;
+            // Perform the subtraction operation in place
+            a.subAssign(rhs);
+            // Return the result
+            return a;
         }
 
         /// Subtracts a bigint from another bigint and assigns the result to the first bigint.

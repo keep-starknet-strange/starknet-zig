@@ -51,15 +51,15 @@ pub const ECPoint = struct {
     pub fn ecAdd(self: *Self, point: ECPoint) ECError!ECPoint {
 
         // The x coordinates of the two points must be different.
-        if (self.x.sub(point.x).eql(Felt252.zero())) {
+        if (self.x.sub(&point.x).eql(Felt252.zero())) {
             return ECError.XCoordinatesAreEqual;
         }
-        const x_diff = self.x.sub(point.x);
-        const y_diff = self.y.sub(point.y);
+        const x_diff = self.x.sub(&point.x);
+        const y_diff = self.y.sub(&point.y);
         const x_sum = self.x.add(point.x);
         const m = try divMod(y_diff, x_diff);
-        const x = m.pow(2).sub(x_sum);
-        const y = m.mul(&self.x.sub(x)).sub(self.y);
+        const x = m.pow(2).sub(&x_sum);
+        const y = m.mul(&self.x.sub(&x)).sub(&self.y);
         return .{ .x = x, .y = y };
     }
 
@@ -89,8 +89,8 @@ pub const ECPoint = struct {
             return ECError.YCoordinateIsZero;
         }
         const m = try self.ecDoubleSlope(alpha);
-        const x = m.pow(2).sub(self.x.mul(&Felt252.two()));
-        const y = m.mul(&self.x.sub(x)).sub(self.y);
+        const x = m.pow(2).sub(&self.x.mul(&Felt252.two()));
+        const y = m.mul(&self.x.sub(&x)).sub(&self.y);
         return .{ .x = x, .y = y };
     }
 
@@ -156,7 +156,7 @@ pub fn ecOpImpl(const_partial_sum: ECPoint, const_doubled_point: ECPoint, m: Fel
     var doubled_point = const_doubled_point;
 
     for (0..height) |_| {
-        if (doubled_point.x.sub(partial_sum.x).eql(Felt252.zero())) {
+        if (doubled_point.x.sub(&partial_sum.x).eql(Felt252.zero())) {
             return ECError.XCoordinatesAreEqual;
         }
         if (slope & 1 != 0) {

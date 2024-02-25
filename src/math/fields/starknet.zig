@@ -341,10 +341,10 @@ test "Felt252 add" {
 test "Felt252 sub" {
     try expectEqual(
         @as(u256, 0x5),
-        Felt252.fromInt(u8, 10).sub(Felt252.fromInt(u8, 5)).toInt(),
+        Felt252.fromInt(u8, 10).sub(&Felt252.fromInt(u8, 5)).toInt(),
     );
-    try expect(Felt252.fromInt(u256, std.math.maxInt(u256)).sub(Felt252.fromInt(u256, std.math.maxInt(u256))).isZero());
-    try expect(Felt252.zero().sub(Felt252.zero()).isZero());
+    try expect(Felt252.fromInt(u256, std.math.maxInt(u256)).sub(&Felt252.fromInt(u256, std.math.maxInt(u256))).isZero());
+    try expect(Felt252.zero().sub(&Felt252.zero()).isZero());
 }
 
 test "Felt252 mul" {
@@ -1156,13 +1156,13 @@ test "Felt252: arithmetic subtraction operations" {
         const zero = Felt252.zero();
 
         // Associativity
-        try expect(a.sub(b).add(b.sub(a)).isZero());
+        try expect(a.sub(&b).add(b.sub(&a)).isZero());
 
         // Identity
-        try expect(zero.sub(a).eql(a.neg()));
-        try expect(zero.sub(b).eql(b.neg()));
-        try expect(a.sub(zero).eql(a));
-        try expect(b.sub(zero).eql(b));
+        try expect(zero.sub(&a).eql(a.neg()));
+        try expect(zero.sub(&b).eql(b.neg()));
+        try expect(a.sub(&zero).eql(a));
+        try expect(b.sub(&zero).eql(b));
     }
 }
 

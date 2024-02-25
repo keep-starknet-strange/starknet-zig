@@ -246,7 +246,7 @@ pub const ProjectivePoint = struct {
         const v = u.double().mul(&self.x).mul(&self.y);
 
         // Calculate w = t^2 - 2*v.
-        const w = t.mul(&t).sub(v.double());
+        const w = t.mul(&t).sub(&v.double());
 
         // Calculate uy = u*y.
         const uy = u.mul(&self.y);
@@ -254,7 +254,7 @@ pub const ProjectivePoint = struct {
         // Update the projective point with the new coordinates after doubling.
         self.* = .{
             .x = u.mul(&w),
-            .y = t.mul(&v.sub(w)).sub(uy.square().double()),
+            .y = t.mul(&v.sub(&w)).sub(&uy.square().double()),
             .z = u.square().mul(&u),
         };
     }
@@ -499,10 +499,10 @@ pub const ProjectivePoint = struct {
         // y1 * z0
         const t1 = rhs.y.mul(&self.z);
         // t0 - t1
-        const t = t0.sub(t1);
+        const t = t0.sub(&t1);
 
         // u0 - u1
-        const u = u_0.sub(u_1);
+        const u = u_0.sub(&u_1);
         // u * u
         const u_2 = u.square();
         // u * u * u
@@ -512,12 +512,12 @@ pub const ProjectivePoint = struct {
         const v = self.z.mul(&rhs.z);
 
         // t * t * v - u2 * (u0 + u1);
-        const w = t.square().mul(&v).sub(u_2.mul(&u_0.add(u_1)));
+        const w = t.square().mul(&v).sub(&u_2.mul(&u_0.add(u_1)));
 
         // Update the coordinates of this point with the result of the addition operation.
         self.* = .{
             .x = u.mul(&w),
-            .y = t.mul(&u_0.mul(&u_2).sub(w)).sub(t0.mul(&u_3)),
+            .y = t.mul(&u_0.mul(&u_2).sub(&w)).sub(&t0.mul(&u_3)),
             .z = u_3.mul(&v),
         };
     }
@@ -566,17 +566,17 @@ pub const ProjectivePoint = struct {
             return;
         }
 
-        const t = t0.sub(t1);
-        const u = u_0.sub(u_1);
+        const t = t0.sub(&t1);
+        const u = u_0.sub(&u_1);
         const u_2 = u.mul(&u);
 
         const v = self.z;
-        const w = t.mul(&t).mul(&v).sub(u_2.mul(&u_0.add(u_1)));
+        const w = t.mul(&t).mul(&v).sub(&u_2.mul(&u_0.add(u_1)));
         const u_3 = u.mul(&u_2);
 
         self.* = .{
             .x = u.mul(&w),
-            .y = t.mul(&u_0.mul(&u_2).sub(w)).sub(t0.mul(&u_3)),
+            .y = t.mul(&u_0.mul(&u_2).sub(&w)).sub(&t0.mul(&u_3)),
             .z = u_3.mul(&v),
         };
     }
