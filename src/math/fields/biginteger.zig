@@ -120,6 +120,31 @@ pub fn bigInt(comptime N: usize) type {
             return !self.isOdd();
         }
 
+        /// Divides a big integer by two.
+        ///
+        /// This function divides the value of the provided big integer (`self`) by two and returns the result.
+        /// It effectively performs a right shift operation on each limb of the big integer.
+        ///
+        /// Parameters:
+        ///   - self: A pointer to the big integer to be divided by two.
+        ///
+        /// Returns:
+        ///   - The big integer resulting from the division by two.
+        ///
+        /// Notes:
+        ///   - This function does not modify the original big integer; it returns a new big integer representing the result of the division.
+        ///   - The division is performed in place, and the result is updated in the original big integer.
+        ///   - Inline loops are used for performance optimization.
+        ///   - The operation effectively performs a right shift of each limb by one bit, equivalent to division by two.
+        pub inline fn div2(self: *const Self) Self {
+            // Dereference the pointer to obtain the actual big integer
+            var a = self.*;
+            // Divide the big integer by two using the div2Assign function
+            a.div2Assign();
+            // Return the result of the division
+            return a;
+        }
+
         /// Divides a big integer by two in place.
         ///
         /// This function divides a big integer by two in place, effectively performing a right shift operation on each limb.
@@ -160,6 +185,71 @@ pub fn bigInt(comptime N: usize) type {
                 // Update the carry with the previous carry bit
                 t = t2;
             }
+        }
+
+        /// Multiplies a big integer by two.
+        ///
+        /// This function multiplies the value of the provided big integer (`self`) by two and returns the result along with the carry bit.
+        /// It effectively performs a left shift operation on each limb of the big integer.
+        ///
+        /// Parameters:
+        ///   - self: A pointer to the big integer to be multiplied by two.
+        ///
+        /// Returns:
+        ///   - A tuple containing the result of the multiplication and a boolean indicating whether there was a carry.
+        ///
+        /// Notes:
+        ///   - This function does not modify the original big integer; it returns a new big integer representing the result of the multiplication.
+        ///   - The multiplication is performed in place, and the result is updated in the original big integer.
+        ///   - Inline loops are used for performance optimization.
+        ///   - The operation effectively performs a left shift of each limb by one bit, equivalent to multiplication by two.
+        pub inline fn mul2(self: *const Self) std.meta.Tuple(&.{ Self, bool }) {
+            // Dereference the pointer to obtain the actual big integer
+            var a = self.*;
+            // Multiply the big integer by two using the mul2Assign function
+            const c = a.mul2Assign();
+            // Return the result of the multiplication along with the carry bit
+            return .{ a, c };
+        }
+
+        /// Multiplies a big integer by two in place.
+        ///
+        /// This function multiplies the value of the provided big integer (`self`) by two in place, modifying the original big integer.
+        /// It iterates through each limb of the big integer, starting from the least significant limb, and performs the multiplication operation.
+        /// During the iteration, it propagates the carry bit from the lower-order bits to the higher-order bits to maintain precision.
+        ///
+        /// Parameters:
+        ///   - self: A pointer to the big integer to be multiplied by two.
+        ///
+        /// Returns:
+        ///   - A boolean indicating whether there was a carry during the multiplication.
+        ///
+        /// Notes:
+        ///   - This function modifies the big integer in place, effectively multiplying it by two.
+        ///   - The carry bit from the lower-order bits is propagated to the higher-order bits to maintain precision during the multiplication operation.
+        ///   - Inline loops are used for performance optimization.
+        ///   - The operation effectively performs a left shift of each limb by one bit, equivalent to multiplication by two.
+        ///   - The multiplication is performed in place, and the result is updated in the original big integer.
+        pub inline fn mul2Assign(self: *Self) bool {
+            // Initialize a variable to hold the carry
+            var last: u64 = 0;
+
+            // Iterate through limbs starting from the least significant
+            inline for (0..N) |i| {
+                // Get a pointer to the current limb
+                const a = &self.limbs[i];
+                // Extract the least significant bit
+                const tmp = a.* >> 63;
+                // Left shift the limb by one bit
+                a.* <<= 1;
+                // Add the carry bit to the current limb
+                a.* |= last;
+                // Update the carry with the previous least significant bit
+                last = tmp;
+            }
+
+            // Return true if there was a carry during the multiplication, false otherwise
+            return last != 0;
         }
 
         /// Adds a big integer to another big integer with carry and returns the result along with a carry flag.
@@ -797,5 +887,37 @@ test "bigInt: fuzzing test for add and sub operations" {
             @as(std.meta.Tuple(&.{ bigInt(4), bool }), .{ zero, false }),
             c.subWithBorrow(&c),
         );
+    }
+}
+
+test "bigInt: fuzzing test for mul and div operations" {
+    // Test case: Fuzzing test for multiplication and division operations
+    // Initialize a pseudo-random number generator (PRNG) with a seed of 0.
+    var prng = std.Random.DefaultPrng.init(0);
+    // Generate a random number using the PRNG.
+    const random = prng.random();
+
+    // Iterate over the test iterations.
+    for (0..TEST_ITERATIONS) |_| {
+
+        // Test case: Verify multiplication and division operations with random big integers
+        // Generate random unsigned integers of different sizes.
+        const a = bigInt(4).rand(random);
+        const b = bigInt(4).rand(random);
+        const c = bigInt(4).rand(random);
+
+        // Constant zero big integer
+        const zero = comptime bigInt(4){};
+
+        // Constant one big integer
+        const one = comptime bigInt(4).one();
+
+        // Test addition with carry operation
+        // Verify that adding a big integer with carry yields the same result as multiplying by two
+        try expectEqual(zero.addWithCarry(&zero), zero.mul2());
+        try expectEqual(one.addWithCarry(&one), one.mul2());
+        try expectEqual(a.addWithCarry(&a), a.mul2());
+        try expectEqual(b.addWithCarry(&b), b.mul2());
+        try expectEqual(c.addWithCarry(&c), c.mul2());
     }
 }

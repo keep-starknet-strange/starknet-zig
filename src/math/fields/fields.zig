@@ -246,13 +246,58 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
             return nonMont;
         }
 
-        /// Double a field element.
+        /// Doubles a field element.
         ///
-        /// Adds the current field element to itself.
-        pub fn double(self: Self) Self {
-            var ret: F.NonMontgomeryDomainFieldElement = undefined;
-            F.add(&ret, self.fe.limbs, self.fe.limbs);
-            return .{ .fe = bigInt(Limbs).init(ret) };
+        /// This function doubles the value of the provided field element (`self`) and returns the result.
+        /// It effectively performs the addition of a field element to itself.
+        ///
+        /// Parameters:
+        ///   - self: A pointer to the field element to be doubled.
+        ///
+        /// Returns:
+        ///   - The doubled field element.
+        ///
+        /// Notes:
+        ///   - This function does not modify the original field element; it returns a new field element representing the doubled value.
+        pub fn double(self: *const Self) Self {
+            // Dereference the pointer to obtain the actual field element
+            var a = self.*;
+            // Double the field element using the doubleAssign function
+            a.doubleAssign();
+            // Return the doubled field element
+            return a;
+        }
+
+        /// Doubles a field element in place.
+        ///
+        /// This function doubles the value of the provided field element (`self`) in place, modifying the original field element.
+        /// It effectively performs the addition of a field element to itself.
+        ///
+        /// After doubling, if the result exceeds the modulus, it is reduced by subtracting the modulus to ensure it remains within the finite field.
+        ///
+        /// Parameters:
+        ///   - self: A pointer to the field element to be doubled.
+        ///
+        /// Returns:
+        ///   - void
+        ///
+        /// Notes:
+        ///   - This function modifies the original field element in place, doubling its value.
+        ///   - If the doubling result exceeds the modulus, it is reduced to remain within the finite field.
+        pub fn doubleAssign(self: *Self) void {
+            // Perform the doubling operation, effectively multiplying the field element by 2.
+            const carry = self.fe.mul2Assign();
+
+            // Check if the result needs to be reduced modulo the modulus.
+            // If the modulus has a spare bit (indicating it's not a power of two), reduction is necessary.
+            if (comptime Self.modulusHasSpareBit()) {
+                // Reduce the result by subtracting the modulus to ensure it remains within the finite field.
+                self.subModulusAssign();
+            } else {
+                // If there was a carry during addition or the result exceeds the modulus,
+                // reduce the result modulo the modulus to maintain field integrity.
+                self.subModulusWithCarryAssign(carry);
+            }
         }
 
         /// Calculating mod sqrt
