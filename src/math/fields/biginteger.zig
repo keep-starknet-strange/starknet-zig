@@ -317,6 +317,78 @@ pub fn bigInt(comptime N: usize) type {
             return std.mem.order(u64, &a, &b);
         }
 
+        /// Checks if a big integer is less than another big integer.
+        ///
+        /// This function compares the current big integer (`self`) with another big integer (`rhs`) and returns true if `self` is less than `rhs`, and false otherwise.
+        ///
+        /// Parameters:
+        ///   - self: A pointer to the current big integer.
+        ///   - rhs: A pointer to the big integer to compare against.
+        ///
+        /// Returns:
+        ///   - `true` if `self` is less than `rhs`, otherwise `false`.
+        pub fn lt(self: *const Self, rhs: *const Self) bool {
+            // Compare the big integers and return true if self is less than rhs
+            return switch (self.cmp(rhs)) {
+                .lt => true,
+                else => false,
+            };
+        }
+
+        /// Checks if a big integer is less than or equal to another big integer.
+        ///
+        /// This function compares the current big integer (`self`) with another big integer (`rhs`) and returns true if `self` is less than or equal to `rhs`, and false otherwise.
+        ///
+        /// Parameters:
+        ///   - self: A pointer to the current big integer.
+        ///   - rhs: A pointer to the big integer to compare against.
+        ///
+        /// Returns:
+        ///   - `true` if `self` is less than or equal to `rhs`, otherwise `false`.
+        pub fn le(self: *const Self, rhs: *const Self) bool {
+            // Compare the big integers and return true if self is less than or equal to rhs
+            return switch (self.cmp(rhs)) {
+                .lt, .eq => true,
+                else => false,
+            };
+        }
+
+        /// Checks if a big integer is greater than another big integer.
+        ///
+        /// This function compares the current big integer (`self`) with another big integer (`rhs`) and returns true if `self` is greater than `rhs`, and false otherwise.
+        ///
+        /// Parameters:
+        ///   - self: A pointer to the current big integer.
+        ///   - rhs: A pointer to the big integer to compare against.
+        ///
+        /// Returns:
+        ///   - `true` if `self` is greater than `rhs`, otherwise `false`.
+        pub fn gt(self: *const Self, rhs: *const Self) bool {
+            // Compare the big integers and return true if self is greater than rhs
+            return switch (self.cmp(rhs)) {
+                .gt => true,
+                else => false,
+            };
+        }
+
+        /// Checks if a big integer is greater than or equal to another big integer.
+        ///
+        /// This function compares the current big integer (`self`) with another big integer (`rhs`) and returns true if `self` is greater than or equal to `rhs`, and false otherwise.
+        ///
+        /// Parameters:
+        ///   - self: A pointer to the current big integer.
+        ///   - rhs: A pointer to the big integer to compare against.
+        ///
+        /// Returns:
+        ///   - `true` if `self` is greater than or equal to `rhs`, otherwise `false`.
+        pub fn ge(self: *const Self, rhs: *const Self) bool {
+            // Compare the big integers and return true if self is greater than or equal to rhs
+            return switch (self.cmp(rhs)) {
+                .gt, .eq => true,
+                else => false,
+            };
+        }
+
         /// Converts a big integer to a little-endian bit representation.
         ///
         /// This function converts a big integer to its little-endian bit representation.
@@ -595,7 +667,7 @@ test "bigInt: constants" {
     try expectEqual(bigInt(4).init(.{ 1, 0, 0, 0 }), comptime bigInt(4).one());
 }
 
-test "bigInt: fuzzing test for equality" {
+test "bigInt: fuzzing test for comparison" {
     // Test case: Fuzzing test for equality
     // Initialize a pseudo-random number generator (PRNG) with a seed of 0.
     var prng = std.Random.DefaultPrng.init(0);
@@ -618,9 +690,48 @@ test "bigInt: fuzzing test for equality" {
         try expect(b.eql(b));
         try expect(c.eql(c));
 
+        // Assert that each big integer is equal to itself using the cmp function
+        try expect(a.cmp(&a) == .eq);
+        try expect(b.cmp(&b) == .eq);
+        try expect(c.cmp(&c) == .eq);
+
+        // Assert that each big integer is less than or equal to itself
+        try expect(a.le(&a));
+        try expect(b.le(&b));
+        try expect(c.le(&c));
+
+        // Assert that each big integer is not less than itself
+        try expect(!a.lt(&a));
+        try expect(!b.lt(&b));
+        try expect(!c.lt(&c));
+
+        // Assert that each big integer is not greater than itself
+        try expect(!a.gt(&a));
+        try expect(!b.gt(&b));
+        try expect(!c.gt(&c));
+
+        // Assert that each big integer is greater than or equal to itself
+        try expect(a.ge(&a));
+        try expect(b.ge(&b));
+        try expect(c.ge(&c));
+
         // Assert that constant big integers are equal to themselves
         try expect(one.eql(one));
         try expect(zero.eql(zero));
+
+        // Assert that one is greater than zero and greater than or equal to zero
+        try expect(one.gt(&zero));
+        try expect(one.ge(&zero));
+        // Assert that one is not less than zero and not less than or equal to zero
+        try expect(!one.lt(&zero));
+        try expect(!one.le(&zero));
+
+        // Assert that zero is not greater than one and not greater than or equal to one
+        try expect(!zero.gt(&one));
+        try expect(!zero.ge(&one));
+        // Assert that zero is less than one and less than or equal to one
+        try expect(zero.lt(&one));
+        try expect(zero.le(&one));
     }
 }
 
