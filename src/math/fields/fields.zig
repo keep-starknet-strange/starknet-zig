@@ -246,12 +246,7 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
         ///
         /// Returns number of bits needed.
         pub fn numBits(self: Self) u64 {
-            const nmself = self.fromMontgomery();
-            inline for (0..Limbs) |i|
-                if (nmself[Limbs - 1 - i] != 0)
-                    return (Limbs - i) * @bitSizeOf(u64) - @clz(nmself[Limbs - 1 - i]);
-
-            return 0;
+            return bigInt(Limbs).init(self.fromMontgomery()).numBits();
         }
 
         /// Check if the field element is lexicographically largest.

@@ -466,6 +466,38 @@ pub fn bigInt(comptime N: usize) type {
             // Return the big-endian byte representation of the big integer
             return buf;
         }
+
+        /// Returns the number of significant bits in the big integer.
+        ///
+        /// This function calculates the number of significant bits in the given big integer `self`.
+        /// It iterates through the limbs of the big integer from the most significant to the least significant,
+        /// checking each limb for non-zero values to determine the number of significant bits.
+        /// If a non-zero limb is found, the function calculates the number of significant bits in that limb
+        /// using the `@clz` (count leading zeros) built-in function and returns the total number of bits up to that limb.
+        /// If all limbs are zero, indicating that the big integer is zero, the function returns zero.
+        ///
+        /// Parameters:
+        ///   - self: A pointer to the big integer for which the number of significant bits will be calculated.
+        ///
+        /// Returns:
+        ///   - The number of significant bits in the big integer.
+        ///
+        /// Notes:
+        ///   - The number of significant bits represents the minimum number of bits required to represent the big integer.
+        ///   - This function provides a measure of the precision or magnitude of the big integer.
+        ///   - It efficiently calculates the number of significant bits by iterating through the limbs from the most significant to the least significant.
+        pub fn numBits(self: Self) u64 {
+            // Iterate through each limb from the most significant to the least significant.
+            inline for (0..N) |i|
+                // Check if the current limb is non-zero.
+                if (self.limbs[N - 1 - i] != 0)
+                    // Calculate the number of significant bits in the non-zero limb using @clz.
+                    // Subtract the number of leading zeros from the total number of bits in a u64.
+                    return (N - i) * @bitSizeOf(u64) - @clz(self.limbs[N - 1 - i]);
+
+            // If all limbs are zero, return zero to indicate that the big integer is zero.
+            return 0;
+        }
     };
 }
 
