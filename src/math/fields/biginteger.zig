@@ -394,6 +394,152 @@ pub fn bigInt(comptime N: usize) type {
             return borrow != 0;
         }
 
+        /// This function performs a multiplication operation between two big integers.
+        /// It multiplies the big integer pointed to by `self` with the big integer pointed to by `rhs`.
+        /// The result of the multiplication is stored in the big integer pointed to by `self`.
+        ///
+        /// Parameters:
+        ///   - self: A pointer to the first big integer operand.
+        ///   - rhs: A pointer to the second big integer operand.
+        ///
+        /// Returns:
+        ///   - A tuple containing the updated value of the big integer pointed to by `self` and the result of the multiplication.
+        pub fn mul(self: *const Self, rhs: *const Self) std.meta.Tuple(&.{ Self, Self }) {
+            // Dereference the pointer to obtain the actual big integer
+            var a = self.*;
+
+            // Call the `mulAssign` method to perform the multiplication
+            return a.mulAssign(rhs);
+        }
+
+        /// This function performs a high multiplication operation between two big integers.
+        /// It multiplies the big integer pointed to by `self` with the big integer pointed to by `rhs`,
+        /// and returns the high part of the result.
+        ///
+        /// Parameters:
+        ///   - self: A pointer to the first big integer operand.
+        ///   - rhs: A pointer to the second big integer operand.
+        ///
+        /// Returns:
+        ///   - The high part of the result of the multiplication.
+        pub fn mulHigh(self: *const Self, rhs: *const Self) Self {
+            // Dereference the pointer to obtain the actual big integer
+            var a = self.*;
+
+            // Call the `mulAssign` method to perform the multiplication and return the high part
+            return a.mulAssign(rhs)[1];
+        }
+
+        /// This function performs an in-place multiplication operation between two big integers.
+        /// It multiplies the big integer pointed to by `self` with the big integer pointed to by `rhs`,
+        /// and stores the result in the big integer pointed to by `self`.
+        ///
+        /// Parameters:
+        ///   - self: A pointer to the first big integer operand.
+        ///   - rhs: A pointer to the second big integer operand.
+        ///
+        /// Returns:
+        ///   - A tuple containing the updated value of the big integer pointed to by `self` and the result of the multiplication.
+        pub fn mulAssign(self: *Self, rhs: *const Self) std.meta.Tuple(&.{ Self, Self }) {
+            // Check if either operand is zero
+            if (self.isZero() or rhs.isZero()) {
+                // If either operand is zero, set the result to zero and return
+                self.* = .{};
+                return .{ .{}, .{} };
+            }
+
+            // Define a buffer to store intermediate multiplication results
+            const MulBuffer = struct {
+                const S = @This();
+
+                // A tuple to store intermediate multiplication results
+                buf: std.meta.Tuple(&.{ [N]u64, [N]u64 }) =
+                    .{ [_]u64{0} ** N, [_]u64{0} ** N },
+
+                // Retrieves a pointer to the buffer element at the specified index
+                fn getBuf(s: *S, index: usize) *u64 {
+                    return if (index < N)
+                        &s.buf[0][index]
+                    else
+                        &s.buf[1][index - N];
+                }
+            };
+
+            // Initialize variables for intermediate results and carry
+            var r: MulBuffer = .{};
+            var carry: u64 = 0;
+
+            // Perform the multiplication using schoolbook multiplication algorithm
+            for (0..N) |i| {
+                for (0..N - i) |j|
+                    // Perform multiplication with carry and update the buffer
+                    r.getBuf(i + j).* = arithmetic.macWithCarry(r.getBuf(i + j).*, self.limbs[i], rhs.limbs[j], &carry);
+                // Store the carry in the high buffer
+                r.buf[1][i] = carry;
+                // Reset the carry for the next iteration
+                carry = 0;
+            }
+
+            // Copy the result from the buffer to the big integer pointed to by `self`
+            @memcpy(&self.limbs, &r.buf[0]);
+
+            // Return a tuple containing the updated value of `self` and the result of the multiplication
+            return .{ Self.init(r.buf[0]), Self.init(r.buf[1]) };
+        }
+
+        /// This function performs a low multiplication operation between two big integers.
+        /// It multiplies the big integer pointed to by `self` with the big integer pointed to by `rhs`,
+        /// and returns the low part of the result.
+        ///
+        /// Parameters:
+        ///   - self: A pointer to the first big integer operand.
+        ///   - rhs: A pointer to the second big integer operand.
+        ///
+        /// Returns:
+        ///   - The low part of the result of the multiplication.
+        pub fn mulLow(self: *const Self, rhs: *const Self) Self {
+            // Dereference the pointer to obtain the actual big integer
+            var a = self.*;
+
+            // Call the `mulLowAssign` method to perform the low multiplication and return the result
+            a.mulLowAssign(rhs);
+            return a;
+        }
+
+        /// This function performs an in-place low multiplication operation between two big integers.
+        /// It multiplies the big integer pointed to by `self` with the big integer pointed to by `rhs`,
+        /// and stores the low part of the result in the big integer pointed to by `self`.
+        ///
+        /// Parameters:
+        ///   - self: A pointer to the first big integer operand.
+        ///   - rhs: A pointer to the second big integer operand.
+        ///
+        /// Returns:
+        ///   - void
+        pub fn mulLowAssign(self: *Self, rhs: *const Self) void {
+            // Check if either operand is zero
+            if (self.isZero() or rhs.isZero())
+                // If either operand is zero, set the result to zero and return
+                self.* = .{};
+
+            // Initialize a variable to store the result
+            var r: Self = .{};
+            // Initialize a variable to hold the carry
+            var carry: u64 = 0;
+
+            // Perform the low multiplication using schoolbook multiplication algorithm
+            for (0..N) |i| {
+                for (0..N - i) |j|
+                    // Perform multiplication with carry and update the result
+                    r.limbs[i + j] = arithmetic.macWithCarry(r.limbs[i + j], self.limbs[i], rhs.limbs[j], &carry);
+                // Reset the carry for the next iteration
+                carry = 0;
+            }
+
+            // Copy the result to the big integer pointed to by `self`
+            @memcpy(&self.limbs, &r.limbs);
+        }
+
         /// Compares two big integers and returns their relative order.
         ///
         /// This function compares two big integers `self` and `rhs` and returns their relative order.
@@ -947,5 +1093,42 @@ test "bigInt: fuzzing test for mul and div operations" {
         try expectEqual(a.addWithCarry(&a), a.mul2());
         try expectEqual(b.addWithCarry(&b), b.mul2());
         try expectEqual(c.addWithCarry(&c), c.mul2());
+
+        // Multiplication by zero
+        try expect(a.mul(&zero)[0].eql(zero));
+        try expect(zero.mul(&a)[0].eql(zero));
+        try expect(zero.mul(&zero)[0].eql(zero));
+
+        try expect(a.mulLow(&zero).eql(zero));
+        try expect(zero.mulLow(&a).eql(zero));
+        try expect(zero.mulLow(&zero).eql(zero));
+
+        try expect(a.mulHigh(&zero).eql(zero));
+        try expect(zero.mulHigh(&a).eql(zero));
+        try expect(zero.mulHigh(&zero).eql(zero));
+
+        // Associativity
+        try expect(a.mul(&b)[0].mul(&c)[0].eql(
+            a.mul(&b.mul(&c)[0])[0],
+        ));
+        try expect(a.mul(&b)[0].mul(&c)[0].eql(
+            a.mulLow(&b.mulLow(&c)),
+        ));
+
+        // Commutativity
+        try expect(a.mul(&b)[0].eql(b.mul(&a)[0]));
+        try expect(a.mul(&c)[0].eql(c.mul(&a)[0]));
+        try expect(b.mul(&c)[0].eql(c.mul(&b)[0]));
+
+        try expect(b.mulLow(&a).eql(a.mulLow(&b)));
+        try expect(c.mulLow(&a).eql(a.mulLow(&c)));
+        try expect(c.mulLow(&b).eql(b.mulLow(&c)));
+
+        //  Associativity and commutativity simultaneously
+        try expect(a.mul(&b)[0].mul(&c)[0].eql(a.mul(&c)[0].mul(&b)[0]));
+        try expect(a.mul(&c)[0].mul(&b)[0].eql(b.mul(&c)[0].mul(&a)[0]));
+
+        try expect(a.mulLow(&b).mulLow(&c).eql(a.mulLow(&c).mulLow(&b)));
+        try expect(a.mulLow(&c).mulLow(&b).eql(b.mulLow(&c).mulLow(&a)));
     }
 }
