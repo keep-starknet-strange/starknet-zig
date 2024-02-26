@@ -445,13 +445,48 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
             F.subtractModulus(&self.fe.limbs);
         }
 
-        /// Negate a field element.
+        /// This function negates the provided field element and returns the result as a new field element.
         ///
-        /// Negates the value of the current field element.
+        /// Parameters:
+        ///   - self: A pointer to the field element to be negated.
+        ///
+        /// Returns:
+        ///   - The negated field element.
+        ///
+        /// Notes:
+        ///   - The provided field element is dereferenced to obtain the actual field element.
+        ///   - The negation is performed in place using the `negAssign` method.
+        ///   - The negated field element is returned as the result.
         pub fn neg(self: *const Self) Self {
-            var ret: F.MontgomeryDomainFieldElement = undefined;
-            F.sub(&ret, Self.zero().fe.limbs, self.fe.limbs);
-            return .{ .fe = bigInt(Limbs).init(ret) };
+            // Dereference the pointer to obtain the actual field element
+            var a = self.*;
+            // Negate the field element using the negAssign function
+            a.negAssign();
+            // Return the result
+            return a;
+        }
+
+        /// This function negates the provided field element in place, modifying the original field element.
+        ///
+        /// Parameters:
+        ///   - self: A pointer to the field element to be negated.
+        ///
+        /// Returns:
+        ///   - void
+        ///
+        /// Notes:
+        ///   - If the provided field element is not zero, its negation is computed by subtracting it from the modulus.
+        ///   - The result is stored back into the original field element.
+        pub fn negAssign(self: *Self) void {
+            // Check if the field element is non-zero
+            if (!self.isZero()) {
+                // Create a temporary big integer representing the modulus
+                var tmp = comptime Modulus;
+                // Subtract the field element from the modulus with borrow and assign the result to tmp
+                _ = tmp.subWithBorrowAssign(&self.fe);
+                // Update the original field element with the negated value
+                self.*.fe = tmp;
+            }
         }
 
         /// Check if the field element is zero.
