@@ -894,6 +894,32 @@ pub fn bigInt(comptime N: usize) type {
             return 0;
         }
 
+        /// Retrieves the value of the bit at the specified index in the big integer.
+        ///
+        /// This function checks if the bit at the specified index is set (1) or unset (0) in the big integer.
+        ///
+        /// Parameters:
+        ///   - self: A pointer to the big integer from which the bit value will be retrieved.
+        ///   - i: The index of the bit to retrieve. Indices start from 0 for the least significant bit.
+        ///
+        /// Returns:
+        ///   - `true` if the bit at the specified index is set (1), `false` otherwise.
+        ///
+        /// Notes:
+        ///   - If the specified index is greater than or equal to the total number of bits in the big integer, the function returns `false`.
+        ///   - The function calculates the index of the limb and the position within the limb corresponding to the specified bit index.
+        ///   - It then checks if the bit at the calculated position within the corresponding limb is set.
+        pub fn getBit(self: *const Self, i: usize) bool {
+            // Check if the specified index exceeds the total number of bits in the big integer.
+            if (i >= comptime 64 * N) return false;
+
+            // Calculate the index of the limb containing the specified bit.
+            const limb: usize = i / 64;
+            // Calculate the position within the limb corresponding to the specified bit index.
+            // Check if the bit at the calculated position within the limb is set.
+            return (self.limbs[limb] & (@as(usize, 1) << @intCast(i - (64 * limb)))) != 0;
+        }
+
         /// Performs a bitwise left shift operation on a big integer.
         ///
         /// This function shifts the bits of the big integer to the left by the specified number of positions.
@@ -1355,4 +1381,48 @@ test "bigInt: fuzzing test for shift operations" {
         // Assert that shifting a big integer by an excessive number of bits results in zero.
         try expect(c.shr(6 * 64).eql(zero));
     }
+}
+
+test "bigInt: fuzzing test for bits operations" {
+    // Initialize a pseudo-random number generator (PRNG) with a seed of 0.
+    var prng = std.Random.DefaultPrng.init(0);
+    // Generate a random number using the PRNG.
+    const random = prng.random();
+
+    // Iterate over the test iterations.
+    for (0..TEST_ITERATIONS) |_| {
+        // Generate random big integers of different sizes.
+        const a = bigInt(4).rand(random);
+        // Compute a new big integer by performing a logical right shift operation on `a` by 3 bits and assign it to `b`.
+        const b = a.shr(3);
+
+        // Test null bits of `b` to ensure the correctness of the logical right shift operation.
+        try expect(!b.getBit(4 * 64 - 1));
+        try expect(!b.getBit(4 * 64 - 2));
+        try expect(!b.getBit(4 * 64 - 3));
+    }
+
+    // Define a constant `one` representing a big integer with the value 1.
+    const one = comptime bigInt(4).one();
+    // Test the bits of `one` to verify the bit representation of the value 1.
+    // - The 0th bit of BigInteger representing 1 is 1
+    try expect(one.getBit(0));
+    // - The 1st bit of BigInteger representing 1 is not 1
+    try expect(!one.getBit(1));
+
+    // Define a constant `thirty_two` representing a big integer with the value 32, obtained by shifting `one` by 5 bits to the left.
+    const thirty_two = one.shl(5);
+    // Test the bits of `thirty_two` to verify the bit representation of the value 32.
+    // - The 0th bit of BigInteger representing 32 is not 1
+    try expect(!thirty_two.getBit(0));
+    // - The 1st bit of BigInteger representing 32 is not 1
+    try expect(!thirty_two.getBit(1));
+    // - The 2nd bit of BigInteger representing 32 is not 1
+    try expect(!thirty_two.getBit(2));
+    // - The 3rd bit of BigInteger representing 32 is not 1
+    try expect(!thirty_two.getBit(3));
+    // - The 4th bit of BigInteger representing 32 is not 1
+    try expect(!thirty_two.getBit(4));
+    // - The 5th bit of BigInteger representing 32 is 1
+    try expect(thirty_two.getBit(5));
 }
