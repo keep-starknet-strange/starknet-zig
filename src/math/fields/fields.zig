@@ -53,7 +53,7 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
             576413109808302096,
         });
 
-        fe: bigInt(Limbs),
+        fe: bigInt(Limbs) = bigInt(Limbs){},
 
         /// Mask to apply to the highest limb to get the correct number of bits.
         pub fn mask(bits: usize) u64 {
@@ -113,12 +113,17 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
             return .{ .fe = bigInt(Limbs).init(mont) };
         }
 
-        /// Get the field element representing zero.
+        /// This function returns a field element representing zero.
         ///
-        /// Returns a field element with a value of zero.
+        /// Returns:
+        ///   - A field element with a value of zero.
+        ///
+        /// Notes:
+        ///   - This function is inline, ensuring efficient compilation and execution.
+        ///   - The returned field element has all limbs initialized to zero.
         pub inline fn zero() Self {
             comptime {
-                return .{ .fe = bigInt(Limbs){} };
+                return .{};
             }
         }
 
@@ -489,11 +494,19 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
             }
         }
 
-        /// Check if the field element is zero.
+        /// This function checks if the provided field element is equal to zero.
         ///
-        /// Determines if the current field element is equal to zero.
+        /// Parameters:
+        ///   - self: A pointer to the field element to be checked.
+        ///
+        /// Returns:
+        ///   - true if the field element is zero, false otherwise.
+        ///
+        /// Notes:
+        ///   - The function internally uses the `eql` method to compare the field element with zero.
+        ///   - Returns true if the field element is equal to zero, indicating it is zero.
         pub fn isZero(self: *const Self) bool {
-            return self.eql(Self.zero());
+            return self.eql(.{});
         }
 
         /// Check if the field element is one.
