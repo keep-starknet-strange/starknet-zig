@@ -55,6 +55,27 @@ pub fn bigInt(comptime N: usize) type {
             }
         }
 
+        /// Checks if a big integer is zero.
+        ///
+        /// This function iterates through each limb of the big integer to determine if it is zero.
+        /// If any limb is non-zero, the function returns false, indicating that the big integer is not zero.
+        /// If all limbs are zero, the function returns true, indicating that the big integer is zero.
+        ///
+        /// Parameters:
+        ///   - self: A pointer to the big integer to be checked.
+        ///
+        /// Returns:
+        ///   - true if the big integer is zero, false otherwise.
+        pub inline fn isZero(self: *const Self) bool {
+            // Iterate through each limb of the big integer
+            for (0..N) |i| {
+                // Check if the current limb is non-zero
+                if (self.limbs[i] != 0) return false;
+            }
+            // If all limbs are zero, return true
+            return true;
+        }
+
         /// Generates a random big integer with the specified limbs.
         ///
         /// This function generates a random big integer with the specified number of limbs using a provided random number generator.
@@ -779,6 +800,13 @@ test "bigInt: fuzzing test for comparison" {
         try expect(a.eql(a));
         try expect(b.eql(b));
         try expect(c.eql(c));
+
+        // Assert isZero method for each big integer
+        try expect(!a.isZero());
+        try expect(!b.isZero());
+        try expect(!c.isZero());
+        try expect(!one.isZero());
+        try expect(zero.isZero());
 
         // Assert that each big integer is equal to itself using the cmp function
         try expect(a.cmp(&a) == .eq);
