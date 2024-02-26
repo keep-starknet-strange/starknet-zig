@@ -893,6 +893,87 @@ pub fn bigInt(comptime N: usize) type {
             // If all limbs are zero, return zero to indicate that the big integer is zero.
             return 0;
         }
+
+        /// Performs a bitwise left shift operation on a big integer.
+        ///
+        /// This function shifts the bits of the big integer to the left by the specified number of positions.
+        /// The shift is performed in place, and the result is returned as a new instance of the `BigInt` struct.
+        ///
+        /// Parameters:
+        ///   - self: A pointer to the big integer to be shifted.
+        ///   - rhs: The number of positions to shift the bits to the left.
+        ///
+        /// Returns:
+        ///   - A new instance of the `BigInt` struct representing the result of the bitwise left shift operation.
+        pub fn shl(self: *const Self, rhs: u32) Self {
+            // Dereference the pointer to obtain the actual big integer.
+            var a = self.*;
+            // Call the shlAssign function to perform the bitwise left shift operation in place.
+            a.shlAssign(rhs);
+            // Return the resulting big integer after the shift operation.
+            return a;
+        }
+
+        /// Performs a bitwise left shift operation on a big integer in place.
+        ///
+        /// This function shifts the bits of the big integer to the left by the specified number of positions.
+        /// The shift is performed in place, modifying the original big integer.
+        ///
+        /// Parameters:
+        ///   - self: A pointer to the big integer to be shifted.
+        ///   - rhs: The number of positions to shift the bits to the left.
+        ///
+        /// Returns:
+        ///   - void
+        ///
+        /// Notes:
+        ///   - If the number of positions to shift is greater than or equal to `64 * N`, where `N` is the number of limbs of the big integer,
+        ///     the big integer is set to zero and the function returns early.
+        ///   - The shift is performed by shifting each limb for one position to the left. If a shift of more than 64 positions is required,
+        ///     multiple iterations are performed until the remaining shift is less than 64.
+        pub fn shlAssign(self: *Self, rhs: u32) void {
+            // Check for overflow.
+            // If the number of positions to shift is greater than or equal to the total bit width of the big integer,
+            // set the big integer to zero and return early.
+            if (rhs >= comptime 64 * N) {
+                self.* = .{};
+                return;
+            }
+
+            // Initialize the remaining shift count.
+            var shift = rhs;
+
+            // Perform the shift operation in blocks of 64 bits until the remaining shift count is less than 64.
+            while (shift >= 64) {
+                // Temporary variable to hold the shifted out bits.
+                var t: u64 = 0;
+                // Shift each limb for one position to the left within the block of 64 bits.
+                inline for (0..N) |i| {
+                    std.mem.swap(u64, &t, &self.limbs[i]);
+                }
+                // Update the remaining shift count.
+                shift -= 64;
+            }
+
+            // If there are remaining shifts to perform.
+            if (shift > 0) {
+                // Temporary variable to hold the shifted out bits.
+                var t: u64 = 0;
+                // Iterate through each limb and perform the remaining shifts.
+                inline for (0..N) |i| {
+                    // Dereference the pointer to the current limb.
+                    const a = &self.limbs[i];
+                    // Perform a logical right shift on the current limb to get the bits shifted out.
+                    const t2 = a.* >> @intCast(64 - shift);
+                    // Perform the left shift operation on the current limb.
+                    a.* <<= @intCast(shift);
+                    // Combine the shifted out bits with the current limb using bitwise OR.
+                    a.* |= t;
+                    // Update the temporary variable with the shifted out bits for the next iteration.
+                    t = t2;
+                }
+            }
+        }
     };
 }
 
@@ -1130,5 +1211,38 @@ test "bigInt: fuzzing test for mul and div operations" {
 
         try expect(a.mulLow(&b).mulLow(&c).eql(a.mulLow(&c).mulLow(&b)));
         try expect(a.mulLow(&c).mulLow(&b).eql(b.mulLow(&c).mulLow(&a)));
+    }
+}
+
+test "bigInt: fuzzing test for shift operations" {
+    // Test case: Fuzzing test for shift operations
+    // Initialize a pseudo-random number generator (PRNG) with a seed of 0.
+    var prng = std.Random.DefaultPrng.init(0);
+    // Generate a random number using the PRNG.
+    const random = prng.random();
+
+    // Iterate over the test iterations.
+    for (0..TEST_ITERATIONS) |_| {
+        // Generate random big integers of different sizes.
+        const a = bigInt(4).rand(random);
+        const b = bigInt(4).rand(random);
+        const c = bigInt(4).rand(random);
+
+        // Initialize variables to hold the expected results after shifting.
+        var a_mul_expected = a;
+        var b_mul_expected = b;
+        var c_mul_expected = c;
+
+        // Perform multiple left shifts on each big integer to compute the expected results.
+        inline for (0..5) |_| {
+            _ = a_mul_expected.mul2Assign();
+            _ = b_mul_expected.mul2Assign();
+            _ = c_mul_expected.mul2Assign();
+        }
+
+        // Assert that the result of shifting each big integer by 5 bits is equal to the expected result after multiple left shifts.
+        try expect(a.shl(5).eql(a_mul_expected));
+        try expect(b.shl(5).eql(b_mul_expected));
+        try expect(c.shl(5).eql(c_mul_expected));
     }
 }
