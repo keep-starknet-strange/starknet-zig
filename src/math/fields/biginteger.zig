@@ -1135,6 +1135,38 @@ pub fn bigInt(comptime N: usize) type {
             // Return 0 if all limbs are zero.
             return 0;
         }
+
+        /// Performs a bitwise OR operation between two big integers.
+        ///
+        /// This function calculates the bitwise OR between two big integers and returns the result.
+        ///
+        /// # Parameters
+        /// - `self`: A pointer to the first big integer.
+        /// - `rhs`: A pointer to the second big integer.
+        ///
+        /// # Returns
+        /// The result of the bitwise OR operation between the two big integers.
+        pub fn bitOr(self: *const Self, rhs: *const Self) Self {
+            // Dereference the pointer to obtain the actual big integer.
+            var a = self.*;
+            // Perform the bitwise OR operation and assign the result to `a`.
+            a.bitOrAssign(rhs);
+            // Return the result of the operation.
+            return a;
+        }
+
+        /// Performs a bitwise OR operation in place on a big integer.
+        ///
+        /// This function calculates the bitwise OR between two big integers and assigns the result to the first big integer.
+        ///
+        /// # Parameters
+        /// - `self`: A pointer to the big integer to be modified.
+        /// - `rhs`: A pointer to the big integer used for the OR operation.
+        pub fn bitOrAssign(self: *Self, rhs: *const Self) void {
+            // Perform a bitwise OR operation on each limb of the big integers.
+            inline for (0..N) |i|
+                self.limbs[i] |= rhs.limbs[i];
+        }
     };
 }
 
@@ -1444,6 +1476,10 @@ test "bigInt: fuzzing test for bits operations" {
         try expect(!b.getBit(4 * 64 - 1));
         try expect(!b.getBit(4 * 64 - 2));
         try expect(!b.getBit(4 * 64 - 3));
+
+        // Bitwise OR operation
+        try expect(a.bitOr(&a).eql(a));
+        try expect(a.bitOr(&b).bitOr(&b).eql(a.bitOr(&b)));
     }
 
     // Define a constant `one` representing a big integer with the value 1.
