@@ -869,11 +869,13 @@ pub fn bigInt(comptime N: usize) type {
 
             // Iterate over each limb of the big integer
             inline for (&res.limbs, 0..) |*res_limb, i| {
+                // Calculate the starting index for the current limb in the bit array
+                const limb_start_index = i * 64;
                 // Iterate over each bit within the current limb
                 inline for (0..@bitSizeOf(u64)) |j| {
                     // Convert the boolean value to an integer (0 or 1) and shift it to its position within the limb
                     // Then, bitwise OR it with the current limb of the result big integer
-                    res_limb.* |= @as(u64, @intCast(@intFromBool(bits[i + j]))) << j;
+                    res_limb.* |= @as(u64, @intCast(@intFromBool(bits[limb_start_index + j]))) << j;
                 }
             }
 
@@ -1597,6 +1599,10 @@ test "bigInt: fuzzing test for bits operations" {
         // Bitwise AND operation
         try expect(a.bitAnd(&a).eql(a));
         try expect(a.bitAnd(&b).bitAnd(&b).eql(a.bitAnd(&b)));
+
+        // From/to bits operations
+        try expect(bigInt(4).fromBitsLe(a.toBitsLe()).eql(a));
+        try expect(bigInt(4).fromBitsBe(a.toBitsBe()).eql(a));
     }
 
     // Define a constant `one` representing a big integer with the value 1.
