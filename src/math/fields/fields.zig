@@ -121,13 +121,37 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
             }
         }
 
-        /// Convert the field element to its non-Montgomery representation.
+        /// Converts a field element from Montgomery representation to a `bigInt` value.
         ///
-        /// Converts a field element from Montgomery form to non-Montgomery representation.
-        pub fn fromMontgomery(self: Self) F.NonMontgomeryDomainFieldElement {
-            var nonMont: F.NonMontgomeryDomainFieldElement = undefined;
-            F.fromMontgomery(&nonMont, self.fe.limbs);
-            return nonMont;
+        /// This function converts a field element from Montgomery representation to a `bigInt` value, allowing
+        /// operations with non-Montgomery values or external usage. It reverses the Montgomery reduction
+        /// process to obtain the original value represented by the field element.
+        ///
+        /// # Returns:
+        /// A `bigInt` value representing the field element in non-Montgomery form.
+        pub fn fromMontgomery(self: Self) bigInt(Limbs) {
+            // Initialize an array to store the limbs of the resulting value
+            var r = self.fe.limbs;
+
+            // Iterate over the limbs of the field element
+            inline for (0..Limbs) |i| {
+                // Compute the Montgomery factor k
+                const k: u64 = r[i] *% Inv;
+                var carry: u64 = 0;
+
+                // Multiply the current limb with k and the modulus, adding the carry
+                _ = arithmetic.macWithCarry(r[i], k, Modulus.limbs[0], &carry);
+
+                // Iterate over the remaining limbs and perform multiplication with carry
+                inline for (1..Limbs) |j|
+                    r[(i + j) % Limbs] = arithmetic.macWithCarry(r[(i + j) % Limbs], k, Modulus.limbs[j], &carry);
+
+                // Store the final carry
+                r[i % Limbs] = carry;
+            }
+
+            // Return the resulting `bigInt` value
+            return .{ .limbs = r };
         }
 
         /// This function returns a field element representing zero.
@@ -198,54 +222,83 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
             }
         }
 
-        /// Create a field element from a byte array.
-        ///
         /// Converts a byte array into a field element in Montgomery representation.
+        ///
+        /// This function takes a byte array as input and converts it into a field element in Montgomery representation.
+        /// The resulting field element is suitable for arithmetic operations within the defined finite field.
+        ///
+        /// # Arguments:
+        /// - `bytes`: A byte array representing the field element.
+        ///
+        /// # Returns:
+        /// A field element in Montgomery representation.
         pub fn fromBytesLe(bytes: [BytesSize]u8) Self {
             return Self.toMontgomery(bigInt(Limbs).fromBytesLe(bytes));
         }
 
-        /// Create a field element from a byte array.
-        ///
         /// Converts a byte array into a field element in Montgomery representation.
+        ///
+        /// This function converts a byte array into a field element in Montgomery representation, allowing
+        /// operations with Montgomery values or external usage.
+        ///
+        /// # Arguments:
+        /// - `bytes`: A byte array representing the field element.
+        ///
+        /// # Returns:
+        /// A field element in Montgomery representation.
         pub fn fromBytesBe(bytes: [BytesSize]u8) Self {
             return Self.toMontgomery(bigInt(Limbs).fromBytesBe(bytes));
         }
 
-        /// Convert the field element to a bits little endian array.
+        /// Converts the field element to a little-endian bits array.
         ///
-        /// This function converts the field element to a byte array for serialization.
+        /// This function converts the field element to a little-endian bits array, suitable for serialization purposes.
+        ///
+        /// # Returns:
+        /// A little-endian bits array representing the field element.
         pub fn toBitsLe(self: Self) [@bitSizeOf(u256)]bool {
-            return bigInt(Limbs).init(self.fromMontgomery()).toBitsLe();
+            return self.fromMontgomery().toBitsLe();
         }
 
+        /// Converts the field element to a big-endian bits array.
+        ///
+        /// This function converts the field element to a big-endian bits array, suitable for serialization purposes.
+        ///
+        /// # Returns:
+        /// A big-endian bits array representing the field element.
         pub fn toBitsBe(self: Self) [@bitSizeOf(u256)]bool {
-            return bigInt(Limbs).init(self.fromMontgomery()).toBitsBe();
+            return self.fromMontgomery().toBitsBe();
         }
 
-        /// Convert the field element to a byte array.
+        /// Converts the field element to a little-endian byte array.
         ///
-        /// This function converts the field element to a byte array for serialization.
+        /// This function converts the field element to a little-endian byte array, suitable for serialization purposes.
+        ///
+        /// # Returns:
+        /// A little-endian byte array representing the field element.
         pub fn toBytesLe(self: Self) [BytesSize]u8 {
-            var non_mont: F.NonMontgomeryDomainFieldElement = undefined;
-            F.fromMontgomery(&non_mont, self.fe.limbs);
-            return bigInt(Limbs).init(non_mont).toBytesLe();
+            return self.fromMontgomery().toBytesLe();
         }
 
-        /// Convert the field element to a big-endian byte array.
+        /// Converts the field element to a big-endian byte array.
         ///
-        /// This function converts the field element to a big-endian byte array for serialization.
+        /// This function converts the field element to a big-endian byte array, suitable for serialization purposes.
+        ///
+        /// # Returns:
+        /// A big-endian byte array representing the field element.
         pub fn toBytesBe(self: Self) [BytesSize]u8 {
-            var non_mont: F.NonMontgomeryDomainFieldElement = undefined;
-            F.fromMontgomery(&non_mont, self.fe.limbs);
-            return bigInt(Limbs).init(non_mont).toBytesBe();
+            return self.fromMontgomery().toBytesBe();
         }
 
-        /// Get the min number of bits needed to field element.
+        /// Retrieves the minimum number of bits required to represent the field element.
         ///
-        /// Returns number of bits needed.
+        /// This function calculates and returns the minimum number of bits needed to represent the field element.
+        /// It considers the current field element's value and returns the corresponding bit count.
+        ///
+        /// # Returns:
+        /// The minimum number of bits needed to represent the field element.
         pub fn numBits(self: Self) u64 {
-            return bigInt(Limbs).init(self.fromMontgomery()).numBits();
+            return self.fromMontgomery().numBits();
         }
 
         /// Check if the field element is lexicographically largest.
@@ -933,13 +986,11 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
         ///
         /// Converts the field element to a u256 integer.
         pub fn toInt(self: Self) u256 {
-            var non_mont: F.NonMontgomeryDomainFieldElement = undefined;
-            F.fromMontgomery(&non_mont, self.fe.limbs);
-
-            var bytes: [BytesSize]u8 = [_]u8{0} ** BytesSize;
-            F.toBytesLe(&bytes, non_mont);
-
-            return std.mem.readInt(u256, &bytes, .little);
+            return std.mem.readInt(
+                u256,
+                &self.fromMontgomery().toBytesLe(),
+                .little,
+            );
         }
 
         /// Try to convert the field element to a u64 if its value is small enough.
@@ -997,13 +1048,7 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
         /// # Returns
         /// A `std.math.Order` enum indicating the ordering relationship.
         pub fn cmp(self: *const Self, rhs: *const Self) std.math.Order {
-            var a_non_mont: F.NonMontgomeryDomainFieldElement = undefined;
-            var b_non_mont: F.NonMontgomeryDomainFieldElement = undefined;
-            F.fromMontgomery(&a_non_mont, self.fe.limbs);
-            F.fromMontgomery(&b_non_mont, rhs.fe.limbs);
-            _ = std.mem.reverse(u64, a_non_mont[0..]);
-            _ = std.mem.reverse(u64, b_non_mont[0..]);
-            return std.mem.order(u64, &a_non_mont, &b_non_mont);
+            return self.fromMontgomery().cmp(&rhs.fromMontgomery());
         }
 
         /// Check if this field element is less than the rhs.
