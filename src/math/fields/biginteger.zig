@@ -1244,6 +1244,38 @@ pub fn bigInt(comptime N: usize) type {
             inline for (0..N) |i|
                 self.limbs[i] &= rhs.limbs[i];
         }
+
+        /// Performs a bitwise XOR operation between two big integers.
+        ///
+        /// This function performs a bitwise XOR operation between two big integers and returns the result.
+        ///
+        /// # Parameters
+        /// - `self`: A pointer to the first big integer operand.
+        /// - `rhs`: A pointer to the second big integer operand.
+        ///
+        /// # Returns
+        /// The result of the bitwise XOR operation.
+        pub fn bitXor(self: *const Self, rhs: *const Self) Self {
+            // Dereference the pointer to obtain the actual big integer.
+            var a = self.*;
+            // Perform a bitwise XOR operation between the two big integers.
+            a.bitXorAssign(rhs);
+            // Return the result of the operation.
+            return a;
+        }
+
+        /// Performs an in-place bitwise XOR operation with another big integer.
+        ///
+        /// This function performs an in-place bitwise XOR operation with another big integer.
+        ///
+        /// # Parameters
+        /// - `self`: A pointer to the big integer to be modified.
+        /// - `rhs`: A pointer to the second big integer operand.
+        pub fn bitXorAssign(self: *Self, rhs: *const Self) void {
+            // Iterate over the limbs of the big integers and perform the bitwise XOR operation.
+            inline for (0..N) |i|
+                self.limbs[i] ^= rhs.limbs[i];
+        }
     };
 }
 
@@ -1557,6 +1589,10 @@ test "bigInt: fuzzing test for bits operations" {
         // Bitwise OR operation
         try expect(a.bitOr(&a).eql(a));
         try expect(a.bitOr(&b).bitOr(&b).eql(a.bitOr(&b)));
+
+        // Bitwise XOR operation
+        const xor = a.bitXor(&b);
+        inline for (0..4) |i| try expect(xor.limbs[i] == a.limbs[i] ^ b.limbs[i]);
 
         // Bitwise AND operation
         try expect(a.bitAnd(&a).eql(a));
