@@ -868,12 +868,12 @@ pub fn bigInt(comptime N: usize) type {
             var res: Self = .{};
 
             // Iterate over each limb of the big integer
-            inline for (0..N) |i| {
+            inline for (&res.limbs, 0..) |*res_limb, i| {
                 // Iterate over each bit within the current limb
                 inline for (0..@bitSizeOf(u64)) |j| {
                     // Convert the boolean value to an integer (0 or 1) and shift it to its position within the limb
                     // Then, bitwise OR it with the current limb of the result big integer
-                    res.limbs[i] |= @as(u64, @intCast(@intFromBool(bits[i + j]))) << j;
+                    res_limb.* |= @as(u64, @intCast(@intFromBool(bits[i + j]))) << j;
                 }
             }
 
