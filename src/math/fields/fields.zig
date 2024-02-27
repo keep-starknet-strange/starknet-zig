@@ -32,8 +32,6 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
         pub const QMinOneDiv2 = (Modulo - 1) / 2;
         /// The number of bits in each limb (typically 64 for u64).
         pub const Bits: usize = 64;
-        /// Bit mask for the last limb.
-        pub const Mask: u64 = mask(Bits);
         /// Number of limbs used to represent a field element.
         pub const Limbs: usize = 4;
         /// The smallest value that can be represented by this integer type.
@@ -55,20 +53,10 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
 
         fe: bigInt(Limbs) = bigInt(Limbs){},
 
-        /// Mask to apply to the highest limb to get the correct number of bits.
-        pub fn mask(bits: usize) u64 {
-            return switch (bits) {
-                0 => 0,
-                else => switch (@mod(bits, 64)) {
-                    0 => std.math.maxInt(u64),
-                    else => |b| std.math.shl(u64, 1, b) - 1,
-                },
-            };
-        }
-
-        /// Creates a `Field` element from an integer of type `T`. The resulting field element is
-        /// in Montgomery form. This function handles conversion for integers of various sizes,
-        /// ensuring compatibility with the defined finite field (`Field`) and its modulo value.
+        /// Creates a `Field` element from an integer value.
+        ///
+        /// This function constructs a `Field` element from an integer value of type `T`. The resulting field element is
+        /// represented in Montgomery form, ensuring compatibility with the defined finite field (`Field`) and its modulo value.
         ///
         /// # Arguments:
         /// - `T`: The type of the integer value.
@@ -76,41 +64,70 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
         ///
         /// # Returns:
         /// A new `Field` element in Montgomery form representing the converted integer.
+        ///
+        /// Errors:
+        /// If `num` is negative, an assertion failure occurs.
+        /// If `T` represents an integer type with more than 128 bits, an error is raised due to unsupported integer sizes.
         pub fn fromInt(comptime T: type, num: T) Self {
-            var mont: F.MontgomeryDomainFieldElement = undefined;
             std.debug.assert(num >= 0);
-            switch (@typeInfo(T).Int.bits) {
-                0...63 => F.toMontgomery(&mont, [Limbs]u64{ @intCast(num), 0, 0, 0 }),
-                64 => F.toMontgomery(&mont, [Limbs]u64{ num, 0, 0, 0 }),
-                65...128 => F.toMontgomery(
-                    &mont,
-                    [Limbs]u64{
-                        @truncate(
-                            @mod(
-                                num,
-                                @as(u128, @intCast(std.math.maxInt(u64))) + 1,
-                            ),
-                        ),
-                        @truncate(
-                            @divTrunc(
-                                num,
-                                @as(u128, @intCast(std.math.maxInt(u64))) + 1,
-                            ),
-                        ),
+
+            // Switch based on the size of the integer value
+            return switch (@typeInfo(T).Int.bits) {
+                // For integers up to 63 bits, directly initialize the field element
+                0...63 => Self.toMontgomery(bigInt(Limbs).init(.{ @intCast(num), 0, 0, 0 })),
+                // For 64-bit integers, initialize the field element directly
+                64 => Self.toMontgomery(bigInt(Limbs).init(.{ num, 0, 0, 0 })),
+                // For integers from 65 to 128 bits, perform truncation and division
+                65...128 => Self.toMontgomery(bigInt(Limbs).init(
+                    .{
+                        @truncate(@mod(num, @as(u128, @intCast(std.math.maxInt(u64))) + 1)),
+                        @truncate(@divTrunc(num, @as(u128, @intCast(std.math.maxInt(u64))) + 1)),
                         0,
                         0,
                     },
-                ),
-                else => {
-                    var lbe: [BytesSize]u8 = [_]u8{0} ** BytesSize;
-                    std.mem.writeInt(u256, lbe[0..], num % Modulo, .little);
-                    var nonMont: F.NonMontgomeryDomainFieldElement = undefined;
-                    F.fromBytesLe(&nonMont, lbe);
-                    F.toMontgomery(&mont, nonMont);
+                )),
+                // For larger integers, convert to bytes and then initialize the field element
+                else => blk: {
+                    var lbe = [_]u8{0} ** BytesSize;
+                    std.mem.writeInt(T, &lbe, num % Modulo, .little);
+                    break :blk Self.toMontgomery(bigInt(Limbs).fromBytesLe(lbe));
                 },
-            }
+            };
+        }
 
-            return .{ .fe = bigInt(Limbs).init(mont) };
+        /// Converts a `bigInt` value to Montgomery representation.
+        ///
+        /// This function converts a `bigInt` value to Montgomery representation, which is essential for arithmetic operations
+        /// in finite fields. The resulting value is compatible with the defined finite field (`Field`) and its modulo value.
+        ///
+        /// If the input value is zero, it returns the Montgomery representation of zero.
+        ///
+        /// # Arguments:
+        /// - `value`: The `bigInt` value to be converted to Montgomery representation.
+        ///
+        /// # Returns:
+        /// A new `Field` element in Montgomery form representing the input value.
+        pub fn toMontgomery(value: bigInt(Limbs)) Self {
+            // Initialize a field element with the given value
+            var r: Self = .{ .fe = value };
+
+            // Check if the value is zero
+            if (r.isZero()) {
+                return r;
+            } else {
+                // If the value is non-zero, multiply it by R^2 in Montgomery form
+                r.mulAssign(&.{ .fe = R2 });
+                return r;
+            }
+        }
+
+        /// Convert the field element to its non-Montgomery representation.
+        ///
+        /// Converts a field element from Montgomery form to non-Montgomery representation.
+        pub fn fromMontgomery(self: Self) F.NonMontgomeryDomainFieldElement {
+            var nonMont: F.NonMontgomeryDomainFieldElement = undefined;
+            F.fromMontgomery(&nonMont, self.fe.limbs);
+            return nonMont;
         }
 
         /// This function returns a field element representing zero.
@@ -185,18 +202,14 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
         ///
         /// Converts a byte array into a field element in Montgomery representation.
         pub fn fromBytesLe(bytes: [BytesSize]u8) Self {
-            var ret: Self = undefined;
-            F.toMontgomery(&ret.fe.limbs, bigInt(Limbs).fromBytesLe(bytes).limbs);
-            return ret;
+            return Self.toMontgomery(bigInt(Limbs).fromBytesLe(bytes));
         }
 
         /// Create a field element from a byte array.
         ///
         /// Converts a byte array into a field element in Montgomery representation.
         pub fn fromBytesBe(bytes: [BytesSize]u8) Self {
-            var ret: Self = undefined;
-            F.toMontgomery(&ret.fe.limbs, bigInt(Limbs).fromBytesBe(bytes).limbs);
-            return ret;
+            return Self.toMontgomery(bigInt(Limbs).fromBytesBe(bytes));
         }
 
         /// Convert the field element to a bits little endian array.
@@ -240,15 +253,6 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
         /// Determines whether the field element is larger than half of the field's modulus.
         pub fn lexographicallyLargest(self: Self) bool {
             return self.toInt() > QMinOneDiv2;
-        }
-
-        /// Convert the field element to its non-Montgomery representation.
-        ///
-        /// Converts a field element from Montgomery form to non-Montgomery representation.
-        pub fn fromMontgomery(self: Self) F.NonMontgomeryDomainFieldElement {
-            var nonMont: F.NonMontgomeryDomainFieldElement = undefined;
-            F.fromMontgomery(&nonMont, self.fe.limbs);
-            return nonMont;
         }
 
         /// Doubles a field element.
