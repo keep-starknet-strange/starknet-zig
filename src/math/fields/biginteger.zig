@@ -881,6 +881,24 @@ pub fn bigInt(comptime N: usize) type {
             return res;
         }
 
+        /// Constructs a big integer from a big-endian array of bits.
+        ///
+        /// This function constructs a big integer from a big-endian array of bits and returns the result.
+        ///
+        /// # Parameters
+        /// - `bits`: A big-endian array of bits representing the big integer.
+        ///
+        /// # Returns
+        /// The big integer constructed from the big-endian array of bits.
+        pub fn fromBitsBe(bits: [@bitSizeOf(u256)]bool) Self {
+            // Create a copy of the input bits array to work with little-endian representation.
+            var bits_le: [@bitSizeOf(u256)]bool = bits;
+            // Reverse the bits array to convert it to little-endian representation.
+            std.mem.reverse(bool, &bits_le);
+            // Construct the big integer from the little-endian bits representation.
+            return Self.fromBitsLe(bits_le);
+        }
+
         /// Computes the number of significant bits in the big integer.
         ///
         /// This function calculates the number of significant bits in the big integer by iterating through each limb
@@ -1583,8 +1601,19 @@ test "bigInt: fuzzing test for bits operations" {
     try expectEqual(@bitSizeOf(u256), bigInt(4).max().numBitsLe());
 
     // Test to obtain big integer from bit array in little endian order
-    var bits_array_one = [_]bool{false} ** (@bitSizeOf(u256));
-    bits_array_one[0] = true;
-    try expect(bigInt(4).fromBitsLe(bits_array_one).eql(one));
+    var bits_array_one_le = [_]bool{false} ** (@bitSizeOf(u256));
+    bits_array_one_le[0] = true;
+    try expect(bigInt(4).fromBitsLe(bits_array_one_le).eql(one));
     try expect(bigInt(4).fromBitsLe([_]bool{true} ** (@bitSizeOf(u256))).eql(bigInt(4).max()));
+    try expect(bigInt(4).fromBitsLe([_]bool{false} ** (@bitSizeOf(u256))).eql(zero));
+
+    // Test to obtain big integer from bit array in big endian order
+    var bits_array_one_be = [_]bool{false} ** (@bitSizeOf(u256));
+    bits_array_one_be[@bitSizeOf(u256) - 1] = true;
+    try expect(bigInt(4).fromBitsBe(bits_array_one_be).eql(one));
+    var bits_array_max = [_]bool{false} ** (@bitSizeOf(u256));
+    bits_array_max[0] = true;
+    try expect(bigInt(4).fromBitsBe(bits_array_max).mul2()[0].eql(zero));
+    try expect(bigInt(4).fromBitsBe([_]bool{true} ** (@bitSizeOf(u256))).eql(bigInt(4).max()));
+    try expect(bigInt(4).fromBitsBe([_]bool{false} ** (@bitSizeOf(u256))).eql(zero));
 }
