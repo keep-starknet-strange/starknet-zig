@@ -1167,6 +1167,38 @@ pub fn bigInt(comptime N: usize) type {
             inline for (0..N) |i|
                 self.limbs[i] |= rhs.limbs[i];
         }
+
+        /// Performs a bitwise AND operation between two big integers.
+        ///
+        /// This function calculates the bitwise AND between two big integers and returns the result.
+        ///
+        /// # Parameters
+        /// - `self`: A pointer to the first big integer.
+        /// - `rhs`: A pointer to the second big integer.
+        ///
+        /// # Returns
+        /// The result of the bitwise AND operation between the two big integers.
+        pub fn bitAnd(self: *const Self, rhs: *const Self) Self {
+            // Dereference the pointer to obtain the actual big integer.
+            var a = self.*;
+            // Perform the bitwise AND operation and assign the result to `a`.
+            a.bitAndAssign(rhs);
+            // Return the result of the operation.
+            return a;
+        }
+
+        /// Performs a bitwise AND operation in place on a big integer.
+        ///
+        /// This function calculates the bitwise AND between two big integers and assigns the result to the first big integer.
+        ///
+        /// # Parameters
+        /// - `self`: A pointer to the big integer to be modified.
+        /// - `rhs`: A pointer to the big integer used for the AND operation.
+        pub fn bitAndAssign(self: *Self, rhs: *const Self) void {
+            // Perform a bitwise AND operation on each limb of the big integers.
+            inline for (0..N) |i|
+                self.limbs[i] &= rhs.limbs[i];
+        }
     };
 }
 
@@ -1480,6 +1512,10 @@ test "bigInt: fuzzing test for bits operations" {
         // Bitwise OR operation
         try expect(a.bitOr(&a).eql(a));
         try expect(a.bitOr(&b).bitOr(&b).eql(a.bitOr(&b)));
+
+        // Bitwise AND operation
+        try expect(a.bitAnd(&a).eql(a));
+        try expect(a.bitAnd(&b).bitAnd(&b).eql(a.bitAnd(&b)));
     }
 
     // Define a constant `one` representing a big integer with the value 1.
