@@ -76,7 +76,7 @@ pub fn Field(comptime modulo: u256) type {
                 // For integers up to 63 bits, directly initialize the field element
                 0...63 => Self.toMontgomery(bigInt(Limbs).init(.{ @intCast(num), 0, 0, 0 })),
                 // For 64-bit integers, initialize the field element directly
-                64 => Self.toMontgomery(bigInt(Limbs).init(.{ num, 0, 0, 0 })),
+                Bits => Self.toMontgomery(bigInt(Limbs).init(.{ num, 0, 0, 0 })),
                 // For integers from 65 to 128 bits, perform truncation and division
                 65...128 => Self.toMontgomery(bigInt(Limbs).init(
                     .{

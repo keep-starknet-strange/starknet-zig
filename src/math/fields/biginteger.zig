@@ -1091,6 +1091,50 @@ pub fn bigInt(comptime N: usize) type {
                 }
             }
         }
+
+        /// Generates a new instance of `Self` with all limbs set to the maximum value of `u64`.
+        ///
+        /// This function creates and returns a new instance of `Self` with each limb initialized to the maximum value of `u64`.
+        ///
+        /// Returns:
+        ///   - A new instance of `Self` with all limbs set to the maximum value of `u64`.
+        pub fn max() Self {
+            // Creates a new instance of `Self` with all limbs set to the maximum value of `u64`.
+            return .{
+                .limbs = .{
+                    std.math.maxInt(u64),
+                    std.math.maxInt(u64),
+                    std.math.maxInt(u64),
+                    std.math.maxInt(u64),
+                },
+            };
+        }
+
+        /// Returns the number of bits needed to represent the number as little endian.
+        ///
+        /// This function calculates and returns the number of bits needed to represent the number as little endian format.
+        ///
+        /// # Parameters
+        /// - `self`: A pointer to the struct instance.
+        ///
+        /// # Returns
+        /// The number of bits needed to represent the number as little endian.
+        pub fn numBitsLe(self: *const Self) usize {
+            // Initialize the variable `l` to the number of limbs.
+            var l: usize = N;
+            // Iterate over each limb in reverse order.
+            while (l > 0) {
+                // Decrement `l`.
+                l -= 1;
+                // Check if the current limb is non-zero.
+                if (self.limbs[l] != 0) {
+                    // Calculate the number of bits needed to represent the non-zero limb.
+                    return @bitSizeOf(u64) * (l + 1) - @clz(self.limbs[l]);
+                }
+            }
+            // Return 0 if all limbs are zero.
+            return 0;
+        }
     };
 }
 
@@ -1425,4 +1469,17 @@ test "bigInt: fuzzing test for bits operations" {
     try expect(!thirty_two.getBit(4));
     // - The 5th bit of BigInteger representing 32 is 1
     try expect(thirty_two.getBit(5));
+
+    // Define a constant `zero` representing a big integer with the value 0.
+    const zero = comptime bigInt(4){};
+
+    // Test the number of bits needed to represent some big integers
+    try expectEqual(@as(usize, 0), zero.numBitsLe());
+    try expectEqual(@as(usize, 65), bigInt(4).init(.{ 0b0, 0b1, 0, 0 }).numBitsLe());
+    try expectEqual(@as(usize, 64 + 3), bigInt(4).init(.{ 0b0, 0b111, 0, 0 }).numBitsLe());
+    try expectEqual(
+        @as(usize, 128),
+        bigInt(4).init(.{ std.math.maxInt(u64), std.math.maxInt(u64), 0, 0 }).numBitsLe(),
+    );
+    try expectEqual(@bitSizeOf(u256), bigInt(4).max().numBitsLe());
 }
