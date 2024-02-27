@@ -854,6 +854,33 @@ pub fn bigInt(comptime N: usize) type {
             return r;
         }
 
+        /// Creates a big integer from a little-endian bit representation.
+        ///
+        /// This function constructs a big integer from a little-endian bit representation stored in a boolean array.
+        ///
+        /// Parameters:
+        ///   - bits: A boolean array representing the little-endian bit representation of the big integer.
+        ///
+        /// Returns:
+        ///   - A new instance of the big integer constructed from the little-endian bit representation.
+        pub fn fromBitsLe(bits: [@bitSizeOf(u256)]bool) Self {
+            // Initialize the result big integer
+            var res: Self = .{};
+
+            // Iterate over each limb of the big integer
+            inline for (0..N) |i| {
+                // Iterate over each bit within the current limb
+                inline for (0..@bitSizeOf(u64)) |j| {
+                    // Convert the boolean value to an integer (0 or 1) and shift it to its position within the limb
+                    // Then, bitwise OR it with the current limb of the result big integer
+                    res.limbs[i] |= @as(u64, @intCast(@intFromBool(bits[i + j]))) << j;
+                }
+            }
+
+            // Return the constructed big integer
+            return res;
+        }
+
         /// Computes the number of significant bits in the big integer.
         ///
         /// This function calculates the number of significant bits in the big integer by iterating through each limb
@@ -1554,4 +1581,10 @@ test "bigInt: fuzzing test for bits operations" {
         bigInt(4).init(.{ std.math.maxInt(u64), std.math.maxInt(u64), 0, 0 }).numBitsLe(),
     );
     try expectEqual(@bitSizeOf(u256), bigInt(4).max().numBitsLe());
+
+    // Test to obtain big integer from bit array in little endian order
+    var bits_array_one = [_]bool{false} ** (@bitSizeOf(u256));
+    bits_array_one[0] = true;
+    try expect(bigInt(4).fromBitsLe(bits_array_one).eql(one));
+    try expect(bigInt(4).fromBitsLe([_]bool{true} ** (@bitSizeOf(u256))).eql(bigInt(4).max()));
 }
