@@ -12,7 +12,7 @@ pub const ModSqrtError = error{
 };
 
 /// Represents a finite field element.
-pub fn Field(comptime F: type, comptime modulo: u256) type {
+pub fn Field(comptime modulo: u256) type {
     return struct {
         const Self = @This();
 
@@ -504,7 +504,7 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
             @memcpy(&self.fe.limbs, &r);
 
             // Perform modulus subtraction if needed
-            F.subtractModulus(&self.fe.limbs);
+            self.subModulusAssign();
         }
 
         /// This function negates the provided field element and returns the result as a new field element.
@@ -679,7 +679,7 @@ pub fn Field(comptime F: type, comptime modulo: u256) type {
             @memcpy(&self.fe.limbs, &r.buf[1]);
 
             // Perform modulus subtraction if needed
-            if (comptime Self.modulusHasSpareBit()) F.subtractModulus(&self.fe.limbs);
+            if (comptime Self.modulusHasSpareBit()) self.subModulusAssign();
         }
 
         /// Raise a field element to a power of 2.

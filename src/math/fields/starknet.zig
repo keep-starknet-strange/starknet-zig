@@ -12,10 +12,7 @@ const expectEqualSlices = std.testing.expectEqualSlices;
 
 // Base field for the Stark curve.
 // The prime is 0x800000000000011000000000000000000000000000000000000000000000001.
-pub const Felt252 = fields.Field(
-    @import("stark_felt_252_gen_fp.zig"),
-    STARKNET_PRIME,
-);
+pub const Felt252 = fields.Field(STARKNET_PRIME);
 
 pub const PRIME_STR = "0x800000000000011000000000000000000000000000000000000000000000001";
 
