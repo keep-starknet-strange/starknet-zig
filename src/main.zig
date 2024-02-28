@@ -48,6 +48,7 @@ test "fields" {
     _ = @import("math/fields/elliptic_curve.zig");
     _ = @import("math/fields/arithmetic.zig");
     _ = @import("math/fields/biginteger.zig");
+    _ = @import("math/fields/const_choice.zig");
 }
 
 test "curve" {
