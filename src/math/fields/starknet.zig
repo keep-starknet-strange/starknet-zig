@@ -106,11 +106,11 @@ test "Felt252: fromU128 should return a field element from a u128" {
     );
 }
 
-test "Felt252 testing for field numBits()" {
-    try expectEqual(@as(u64, 1), Felt252.fromInt(u8, 1).numBits());
-    try expectEqual(@as(u64, 4), Felt252.fromInt(u8, 10).numBits());
-    try expectEqual(@as(u64, 252), Felt252.fromInt(u8, 1).neg().numBits());
-    try expectEqual(@as(u64, 0), Felt252.fromInt(u8, 0).numBits());
+test "Felt252 testing for field numBitsLe()" {
+    try expectEqual(@as(u64, 1), Felt252.fromInt(u8, 1).numBitsLe());
+    try expectEqual(@as(u64, 4), Felt252.fromInt(u8, 10).numBitsLe());
+    try expectEqual(@as(u64, 252), Felt252.fromInt(u8, 1).neg().numBitsLe());
+    try expectEqual(@as(u64, 0), Felt252.fromInt(u8, 0).numBitsLe());
 }
 
 test "Felt252 fromInteger" {

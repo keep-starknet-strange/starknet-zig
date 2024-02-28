@@ -297,8 +297,8 @@ pub fn Field(comptime modulo: u256) type {
         ///
         /// # Returns:
         /// The minimum number of bits needed to represent the field element.
-        pub fn numBits(self: Self) u64 {
-            return self.fromMontgomery().numBits();
+        pub fn numBitsLe(self: Self) u64 {
+            return self.fromMontgomery().numBitsLe();
         }
 
         /// Check if the field element is lexicographically largest.

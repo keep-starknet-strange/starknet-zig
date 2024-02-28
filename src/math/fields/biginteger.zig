@@ -901,46 +901,6 @@ pub fn bigInt(comptime N: usize) type {
             return Self.fromBitsLe(bits_le);
         }
 
-        /// Computes the number of significant bits in the big integer.
-        ///
-        /// This function calculates the number of significant bits in the big integer by iterating through each limb
-        /// from the most significant to the least significant. It checks each limb to determine if it is non-zero,
-        /// and if so, calculates the number of significant bits in that limb using the `@clz` builtin function.
-        /// The total number of bits in the big integer is then computed by multiplying the number of significant
-        /// bits in the non-zero limb by the size of a u64 and subtracting the number of leading zeros.
-        ///
-        /// Parameters:
-        ///   - self: A pointer to the big integer for which the number of significant bits will be computed.
-        ///
-        /// Returns:
-        ///   - The number of significant bits in the big integer.
-        ///
-        /// Notes:
-        ///   - This function iterates through each limb of the big integer from the most significant to the least significant.
-        ///   - It checks each limb to determine if it is non-zero, indicating the presence of significant bits.
-        ///   - If all limbs are zero, indicating that the big integer is zero, the function returns zero.
-        ///   - The number of significant bits is computed by subtracting the number of leading zeros from the total number of bits.
-        ///   - Inline loops are used for performance optimization.
-        ///   - The result represents the number of significant bits in the big integer, excluding leading zeros.
-        ///   - This function is useful for determining the bit length of a big integer, which is important for various arithmetic operations.
-        pub fn numBits(self: Self) u64 {
-            // Determine the index of the most significant limb.
-            const max_limb = N - 1;
-
-            // Iterate through each limb from the most significant to the least significant.
-            inline for (0..N) |i| {
-                // Check if the current limb is non-zero.
-                if (self.limbs[max_limb - i] != 0) {
-                    // Calculate the number of significant bits in the non-zero limb using @clz.
-                    // Subtract the number of leading zeros from the total number of bits in a u64.
-                    return (N - i) * @bitSizeOf(u64) - @clz(self.limbs[max_limb - i]);
-                }
-            }
-
-            // If all limbs are zero, return zero to indicate that the big integer is zero.
-            return 0;
-        }
-
         /// Retrieves the value of the bit at the specified index in the big integer.
         ///
         /// This function checks if the bit at the specified index is set (1) or unset (0) in the big integer.
