@@ -3,6 +3,7 @@ const std = @import("std");
 const expectEqual = std.testing.expectEqual;
 const expect = std.testing.expect;
 
+/// Provides functionality for working with constant-time boolean choices.
 pub const ConstChoice = struct {
     const Self = @This();
 
