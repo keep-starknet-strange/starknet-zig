@@ -1,5 +1,6 @@
 const std = @import("std");
 const arithmetic = @import("./arithmetic.zig");
+const ConstChoice = @import("./const_choice.zig").ConstChoice;
 const TEST_ITERATIONS = @import("../../main.zig").TEST_ITERATIONS;
 
 const expectEqual = std.testing.expectEqual;
@@ -34,6 +35,50 @@ pub fn bigInt(comptime N: usize) type {
         ///   - A new instance of the `bigInt` struct with the specified limbs.
         pub fn init(limbs: [N]u64) Self {
             return .{ .limbs = limbs };
+        }
+
+        /// Converts an integer value to a big integer.
+        ///
+        /// This function converts an integer value to a big integer representation. The big integer type has a fixed number of limbs, each being a 64-bit unsigned integer. The function handles conversion for various sizes of integer values.
+        ///
+        /// Parameters:
+        ///   - T: The type of the integer to convert.
+        ///   - num: The integer value to convert.
+        ///
+        /// Returns:
+        ///   - A big integer representation of the provided integer value.
+        ///
+        /// Remarks:
+        ///   - The function assumes that the provided integer value is non-negative.
+        ///   - For integers up to 63 bits, the function directly initializes the field element.
+        ///   - For 64-bit integers, the function initializes the field element directly.
+        ///   - For integers from 65 to 128 bits, the function performs truncation and division to fit into the limbs of the big integer.
+        ///   - For larger integers, the function converts the integer to bytes and then initializes the field element.
+        pub fn fromInt(comptime T: type, num: T) Self {
+            std.debug.assert(num >= 0);
+
+            // Switch based on the size of the integer value
+            return switch (@typeInfo(T).Int.bits) {
+                // For integers up to 63 bits, directly initialize the field element
+                0...63 => .{ .limbs = .{ @intCast(num), 0, 0, 0 } },
+                // For 64-bit integers, initialize the field element directly
+                64 => .{ .limbs = .{ num, 0, 0, 0 } },
+                // For integers from 65 to 128 bits, perform truncation and division
+                65...128 => .{
+                    .limbs = .{
+                        @truncate(@mod(num, @as(u128, @intCast(std.math.maxInt(u64))) + 1)),
+                        @truncate(@divTrunc(num, @as(u128, @intCast(std.math.maxInt(u64))) + 1)),
+                        0,
+                        0,
+                    },
+                },
+                // For larger integers, convert to bytes and then initialize the field element
+                else => blk: {
+                    var lbe = [_]u8{0} ** (N * @sizeOf(u64));
+                    std.mem.writeInt(T, &lbe, num, .little);
+                    break :blk Self.fromBytesLe(lbe);
+                },
+            };
         }
 
         /// Returns a big integer representing the value one.
@@ -1238,6 +1283,81 @@ pub fn bigInt(comptime N: usize) type {
             inline for (0..N) |i|
                 self.limbs[i] ^= rhs.limbs[i];
         }
+
+        /// Selects between two big integers based on a constant choice.
+        ///
+        /// This function selects between two big integers based on a constant choice provided as an argument. If the constant choice is `TRUE`, the function returns the second big integer (`rhs`), otherwise, it returns the first big integer (`self`).
+        ///
+        /// Parameters:
+        ///   - self: A pointer to the first big integer.
+        ///   - rhs: A pointer to the second big integer.
+        ///   - c: A constant choice indicating which big integer to select.
+        ///
+        /// Returns:
+        ///   - The selected big integer.
+        pub fn select(self: *const Self, rhs: *const Self, c: ConstChoice) Self {
+            return if (c.eql(&ConstChoice.TRUE)) rhs.* else self.*;
+        }
+
+        /// Computes division with remainder for two big integers.
+        ///
+        /// This function computes division with remainder for two big integers using a variant of long division algorithm. It returns a tuple containing the quotient and the remainder.
+        ///
+        /// Parameters:
+        ///   - self: A pointer to the dividend big integer.
+        ///   - rhs: A pointer to the divisor big integer.
+        ///
+        /// Returns:
+        ///   - A tuple containing the quotient and the remainder.
+        ///
+        /// Remarks:
+        ///   - The function assumes that the divisor big integer is non-zero.
+        ///   - The division algorithm used is a variant of long division.
+        pub fn divRem(self: *const Self, rhs: *const Self) std.meta.Tuple(&.{ Self, Self }) {
+            // Ensure that the divisor is not zero
+            std.debug.assert(!rhs.isZero());
+
+            // Calculate the number of bits in the divisor
+            const mb = rhs.numBitsLe();
+
+            // Initialize the remainder as the dividend
+            var rem = self.*;
+
+            // Initialize the quotient as zero
+            var qt: Self = .{};
+
+            // Calculate the number of bits to shift the divisor
+            var bd: u32 = @intCast(N * @bitSizeOf(u64) - mb);
+
+            // Shift the divisor to align with the most significant bit of the remainder
+            var c = rhs.shl(bd);
+
+            // Perform long division algorithm
+            while (true) {
+                // Compute the difference between the remainder and the shifted divisor
+                const rb = rem.subWithBorrow(&c);
+
+                // Determine whether to subtract or not based on the borrow
+                const choice = ConstChoice.initFromBool(rb[1]);
+
+                // Update the remainder based on the choice
+                rem = rb[0].select(&rem, choice);
+
+                // Update the quotient based on the choice
+                qt = qt.bitOr(&comptime Self.one()).select(&qt, choice);
+
+                // Check if the division process is complete
+                if (bd == 0) break;
+
+                // Update the shift count and the shifted divisor
+                bd -= 1;
+                c.shrAssign(1);
+                qt.shlAssign(1);
+            }
+
+            // Return the computed quotient and remainder as a tuple
+            return .{ qt, rem };
+        }
     };
 }
 
@@ -1476,6 +1596,77 @@ test "bigInt: fuzzing test for mul and div operations" {
         try expect(a.mulLow(&b).mulLow(&c).eql(a.mulLow(&c).mulLow(&b)));
         try expect(a.mulLow(&c).mulLow(&b).eql(b.mulLow(&c).mulLow(&a)));
     }
+}
+
+test "bigInt: division with remainder" {
+    // Test case: Fuzzing test for division operations
+    // Initialize a pseudo-random number generator (PRNG) with a seed of 0.
+    var prng = std.Random.DefaultPrng.init(0);
+    // Generate a random number using the PRNG.
+    const random = prng.random();
+
+    // Iterate over the test iterations.
+    for (0..TEST_ITERATIONS) |_| {
+
+        // Test case: Verify multiplication and division operations with random big integers
+        // Generate random unsigned integers of different sizes.
+        const a = bigInt(4).rand(random);
+        const b = bigInt(4).rand(random);
+
+        // Verify that the division with remainder operation works correctly.
+        try expectEqual(
+            @as(
+                std.meta.Tuple(&.{ bigInt(4), bigInt(4) }),
+                .{ a.shr(128), .{} },
+            ),
+            a.shr(128).mulLow(&b.shr(128)).divRem(&b.shr(128)),
+        );
+    }
+
+    // Iterate over predefined test cases.
+    for (
+        [_]std.meta.Tuple(&.{ u256, u256, u256, u256 }){
+            .{ 200, 2, 100, 0 },
+            .{ 100, 25, 4, 0 },
+            .{ 100, 10, 10, 0 },
+            .{ 1024, 8, 128, 0 },
+            .{ 27, 13, 2, 1 },
+            .{ 26, 13, 2, 0 },
+            .{ 14, 13, 1, 1 },
+            .{ 13, 13, 1, 0 },
+            .{ 12, 13, 0, 12 },
+            .{ 1, 13, 0, 1 },
+            .{ 10, 1, 10, 0 },
+            .{ 8, 3, 2, 2 },
+            .{ 500721, 5, 100144, 1 },
+            .{ 4758402376589578934275873583589345, 43950384634609, 108267593472721187331, 12368508650766 },
+        },
+    ) |r| {
+        // Create big integers from the test case values.
+        const a = bigInt(4).fromInt(u256, r[0]);
+        const b = bigInt(4).fromInt(u256, r[1]);
+        const c = bigInt(4).fromInt(u256, r[2]);
+        const d = bigInt(4).fromInt(u256, r[3]);
+
+        // Verify that the division with remainder operation works correctly for predefined test cases.
+        try expectEqual(
+            @as(std.meta.Tuple(&.{ bigInt(4), bigInt(4) }), .{ c, d }),
+            a.divRem(&b),
+        );
+    }
+
+    // Test case: Verify division with remainder operation for large integers.
+    const a = bigInt(4).fromInt(u256, 12678920202929299999999999282828);
+    const b = bigInt(4).fromInt(u256, 9000000000000);
+
+    // Verify that the division with remainder operation works correctly for large integers.
+    try expectEqual(
+        @as(
+            std.meta.Tuple(&.{ bigInt(4), bigInt(4) }),
+            .{ a, .{} },
+        ),
+        a.mulLow(&b).divRem(&b),
+    );
 }
 
 test "bigInt: fuzzing test for shift operations" {
