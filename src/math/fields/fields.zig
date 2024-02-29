@@ -17,9 +17,9 @@ pub fn Field(comptime modulo: u256) type {
         const Self = @This();
 
         // Reprensentation of - modulus^{-1} mod 2^{64}
-        pub const Inv: u64 = 0xffffffffffffffff;
+        pub const Inv: u64 = computeRMontgomery();
         // One before the modulus
-        pub const MaxField: bigInt(Limbs) = bigInt(Limbs).init(.{ 32, 0, 0, 544 });
+        pub const MaxField: bigInt(Limbs) = bigInt(Limbs).fromInt(u256, modulo - 1);
         // Modulus in non Montgomery format
         pub const Modulus: bigInt(Limbs) = bigInt(Limbs).init(.{ 1, 0, 0, 576460752303423505 });
         /// Number of bits needed to represent a field element with the given modulo.
@@ -93,6 +93,41 @@ pub fn Field(comptime modulo: u256) type {
                     break :blk Self.toMontgomery(bigInt(Limbs).fromBytesLe(lbe));
                 },
             };
+        }
+
+        /// Computes the value of -modulo^(-1) mod 2^64 using a specialized algorithm.
+        ///
+        /// This function computes the modular inverse of `-modulo` modulo 2^64, where `modulo` is the modulus of the finite field, using a specialized algorithm.
+        ///
+        /// # Returns:
+        /// The modular inverse of `-modulo` modulo 2^64.
+        ///
+        /// Remarks:
+        /// - This function is used in Montgomery exponentiation to compute the R value.
+        /// - The computation relies on a special case where the modulus is odd and `2^64` is a power of 2.
+        /// - The algorithm follows the procedure described in the paper by Donald E. Knuth, "The Art of Computer Programming, Volume 2: Seminumerical Algorithms", Section 4.3.1, Algorithm P.
+        /// - We have found (or rediscovered) a very efficient way to compute the modular inverse in the special case that the modulus is odd and `2^64` is a power of 2.
+        pub fn computeRMontgomery() u64 {
+            // Compile-time computation
+            comptime {
+                // Initialize the exponentiation value
+                var y: u64 = 1;
+
+                // Iterate over the bits of the modulus
+                for (2..Bits + 1) |i| {
+                    // Compute m = modulus * y
+                    const m = Modulus.mul(&bigInt(Limbs).fromInt(u64, y));
+
+                    // Check if the most significant bit of m is set
+                    if ((m[0].limbs[0] << (Bits - i)) >> (Bits - i) != 1) {
+                        // If not set, increment y by 2^(i - 1)
+                        y += 1 << (i - 1);
+                    }
+                }
+
+                // Return the computed modular inverse
+                return -%y;
+            }
         }
 
         /// Converts a `bigInt` value to Montgomery representation.
@@ -486,7 +521,7 @@ pub fn Field(comptime modulo: u256) type {
                 r[0] = arithmetic.mac(r[0], self.fe.limbs[0], rhs.fe.limbs[i], &carry1);
 
                 // Compute the Montgomery factor k and perform the corresponding multiplication and reduction
-                const k: u64 = r[0] *% comptime Self.Inv;
+                const k: u64 = r[0] *% comptime Inv;
                 var carry2: u64 = 0;
                 arithmetic.macDiscard(r[0], k, comptime Self.Modulus.limbs[0], &carry2);
 
@@ -665,7 +700,7 @@ pub fn Field(comptime modulo: u256) type {
 
             // Reduce and update buffer
             inline for (0..Limbs) |i| {
-                const k: u64 = r.buf[0][i] *% Inv;
+                const k: u64 = r.buf[0][i] *% comptime Inv;
                 carry = 0;
                 arithmetic.macDiscard(r.buf[0][i], k, Modulus.limbs[0], &carry);
 
