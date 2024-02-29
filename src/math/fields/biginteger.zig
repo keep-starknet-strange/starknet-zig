@@ -1359,9 +1359,9 @@ pub fn bigInt(comptime N: usize) type {
             return .{ qt, rm };
         }
 
-        /// Computes the remainder of dividing `self` by `rhs`.
+        /// Computes the remainder of dividing `self` by `rhs`, returning the remainder in variable-time with respect to `rhs`.
         ///
-        /// This function computes the remainder of dividing `self` by `rhs` and returns it.
+        /// When used with a fixed `rhs`, this function is constant-time with respect to `self`.
         ///
         /// Parameters:
         ///   - self: A pointer to the dividend big integer.
@@ -1373,7 +1373,39 @@ pub fn bigInt(comptime N: usize) type {
         /// Remarks:
         ///   - This function is equivalent to obtaining the second element of the tuple returned by `divRem`.
         pub fn rem(self: *const Self, rhs: *const Self) Self {
-            return self.divRem(rhs)[1];
+            // Ensure that the divisor is not zero
+            std.debug.assert(!rhs.isZero());
+
+            // Calculate the number of bits in the divisor
+            const mb = rhs.numBitsLe();
+
+            // Initialize the remainder as the dividend
+            var rm = self.*;
+
+            // Calculate the number of bits to shift the divisor
+            var bd: u32 = @intCast(N * @bitSizeOf(u64) - mb);
+
+            // Shift the divisor to align with the most significant bit of the remainder
+            var c = rhs.shl(bd);
+
+            // Perform long division algorithm
+            while (true) {
+                // Compute the difference between the remainder and the shifted divisor
+                const rb = rm.subWithBorrow(&c);
+
+                // Update the remainder based on the choice
+                rm = rb[0].select(&rm, ConstChoice.initFromBool(rb[1]));
+
+                // Check if the division process is complete
+                if (bd == 0) break;
+
+                // Update the shift count and the shifted divisor
+                bd -= 1;
+                c.shrAssign(1);
+            }
+
+            // Return the computed remainder
+            return rm;
         }
     };
 }
