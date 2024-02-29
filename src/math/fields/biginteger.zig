@@ -1321,7 +1321,7 @@ pub fn bigInt(comptime N: usize) type {
             const mb = rhs.numBitsLe();
 
             // Initialize the remainder as the dividend
-            var rem = self.*;
+            var rm = self.*;
 
             // Initialize the quotient as zero
             var qt: Self = .{};
@@ -1335,13 +1335,13 @@ pub fn bigInt(comptime N: usize) type {
             // Perform long division algorithm
             while (true) {
                 // Compute the difference between the remainder and the shifted divisor
-                const rb = rem.subWithBorrow(&c);
+                const rb = rm.subWithBorrow(&c);
 
                 // Determine whether to subtract or not based on the borrow
                 const choice = ConstChoice.initFromBool(rb[1]);
 
                 // Update the remainder based on the choice
-                rem = rb[0].select(&rem, choice);
+                rm = rb[0].select(&rm, choice);
 
                 // Update the quotient based on the choice
                 qt = qt.bitOr(&comptime Self.one()).select(&qt, choice);
@@ -1356,7 +1356,24 @@ pub fn bigInt(comptime N: usize) type {
             }
 
             // Return the computed quotient and remainder as a tuple
-            return .{ qt, rem };
+            return .{ qt, rm };
+        }
+
+        /// Computes the remainder of dividing `self` by `rhs`.
+        ///
+        /// This function computes the remainder of dividing `self` by `rhs` and returns it.
+        ///
+        /// Parameters:
+        ///   - self: A pointer to the dividend big integer.
+        ///   - rhs: A pointer to the divisor big integer.
+        ///
+        /// Returns:
+        ///   - The remainder of dividing `self` by `rhs`.
+        ///
+        /// Remarks:
+        ///   - This function is equivalent to obtaining the second element of the tuple returned by `divRem`.
+        pub fn rem(self: *const Self, rhs: *const Self) Self {
+            return self.divRem(rhs)[1];
         }
     };
 }
@@ -1653,6 +1670,9 @@ test "bigInt: division with remainder" {
             @as(std.meta.Tuple(&.{ bigInt(4), bigInt(4) }), .{ c, d }),
             a.divRem(&b),
         );
+
+        // Verify the remainder.
+        try expectEqual(d, a.rem(&b));
     }
 
     // Test case: Verify division with remainder operation for large integers.
