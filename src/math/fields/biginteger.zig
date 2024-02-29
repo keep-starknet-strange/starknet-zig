@@ -158,6 +158,26 @@ pub fn bigInt(comptime N: usize) type {
             return std.mem.eql(u64, &self.limbs, &rhs.limbs);
         }
 
+        /// Checks if two big integers are not equal.
+        ///
+        /// This function compares two big integers for inequality by iterating over their limbs and checking if any corresponding pair of limbs is not equal.
+        ///
+        /// Parameters:
+        ///   - self: The first big integer to compare.
+        ///   - rhs: The second big integer to compare.
+        ///
+        /// Returns:
+        ///   - true if the big integers are not equal, false otherwise.
+        pub fn ne(self: Self, rhs: Self) bool {
+            // Iterate over each limb pair of the big integers
+            inline for (self.limbs, rhs.limbs) |ll, rl| {
+                // Check if the corresponding limbs are not equal
+                if (ll != rl) return true;
+            }
+            // If all corresponding limbs are equal, return false
+            return false;
+        }
+
         /// Checks if a big integer is odd.
         ///
         /// This function determines whether a given big integer is odd by examining the least significant bit of its first limb.
@@ -1460,6 +1480,16 @@ test "bigInt: fuzzing test for comparison" {
         try expect(a.eql(a));
         try expect(b.eql(b));
         try expect(c.eql(c));
+
+        // Assert that each big integer is equal to itself
+        try expect(!a.ne(a));
+        try expect(!b.ne(b));
+        try expect(!c.ne(c));
+
+        // Assert non equality
+        if (!a.eql(b)) try expect(a.ne(b));
+        if (!a.eql(c)) try expect(a.ne(c));
+        if (!b.eql(c)) try expect(b.ne(c));
 
         // Assert isZero method for each big integer
         try expect(!a.isZero());

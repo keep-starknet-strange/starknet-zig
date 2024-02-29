@@ -21,7 +21,7 @@ pub fn Field(comptime modulo: u256) type {
         // One before the modulus
         pub const MaxField: bigInt(Limbs) = bigInt(Limbs).fromInt(u256, modulo - 1);
         // Modulus in non Montgomery format
-        pub const Modulus: bigInt(Limbs) = bigInt(Limbs).init(.{ 1, 0, 0, 576460752303423505 });
+        pub const Modulus: bigInt(Limbs) = bigInt(Limbs).fromInt(u256, modulo);
         /// Number of bits needed to represent a field element with the given modulo.
         pub const BitSize = @bitSizeOf(u256) - @clz(modulo);
         /// Number of bytes required to store a field element.
