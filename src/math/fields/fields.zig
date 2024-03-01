@@ -45,15 +45,10 @@ pub fn Field(comptime modulo: u256) type {
         /// This value indicates the number of bytes required to store a single field element.
         pub const BytesSize = @sizeOf(u256);
 
-        /// Represents the modulo value of the finite field.
-        ///
-        /// This value represents the modulo of the finite field.
-        pub const Modulo = modulo;
-
         /// Represents half of the modulus value.
         ///
-        /// This value is calculated as (Modulo - 1) divided by 2 and is used in certain arithmetic computations.
-        pub const QMinOneDiv2 = (Modulo - 1) / 2;
+        /// This value is calculated as (modulo - 1) divided by 2 and is used in certain arithmetic computations.
+        pub const QMinOneDiv2 = (modulo - 1) / 2;
 
         /// Represents the number of bits in each limb.
         ///
@@ -115,7 +110,7 @@ pub fn Field(comptime modulo: u256) type {
                 // For larger integers, convert to bytes and then initialize the field element
                 else => blk: {
                     var lbe = [_]u8{0} ** BytesSize;
-                    std.mem.writeInt(T, &lbe, num % Modulo, .little);
+                    std.mem.writeInt(T, &lbe, num % modulo, .little);
                     break :blk Self.toMontgomery(bigInt(Limbs).fromBytesLe(lbe));
                 },
             };
@@ -1120,7 +1115,7 @@ pub fn Field(comptime modulo: u256) type {
             const ls = a.pow(comptime QMinOneDiv2);
 
             // Check if a^(p-1)/2 is equivalent to -1 modulo p
-            if (ls.toU256() == comptime Modulo - 1) return -1;
+            if (ls.toU256() == comptime modulo - 1) return -1;
 
             // Check if a^(p-1)/2 is equivalent to 0 modulo p
             if (ls.isZero()) return 0;
