@@ -81,6 +81,43 @@ pub fn bigInt(comptime N: usize) type {
             };
         }
 
+        /// Convert the field element to a u256 integer.
+        ///
+        /// Converts the field element to a u256 integer.
+        ///
+        /// Parameters:
+        ///   - self: The field element to convert.
+        ///
+        /// Returns:
+        ///   - A u256 integer representing the field element.
+        pub fn toU256(self: Self) u256 {
+            return std.mem.readInt(
+                u256,
+                &self.toBytesLe(),
+                .little,
+            );
+        }
+
+        /// Try to convert the field element to a u64 if its value is small enough.
+        ///
+        /// Attempts to convert the field element to a u64 if its value is within the representable range.
+        ///
+        /// Parameters:
+        ///   - self: The field element to convert.
+        ///   - T: The target type for conversion (must be u64 or smaller).
+        ///
+        /// Returns:
+        ///   - A u64 representation of the field element if conversion succeeds.
+        ///   - Error(ValueTooLarge) if the value exceeds the representable range of the target type.
+        pub fn toInt(self: Self, comptime T: type) !T {
+            const asU256 = self.toU256();
+            // Check if the value is small enough to fit into a type T integer
+            if (asU256 > std.math.maxInt(T)) return error.ValueTooLarge;
+
+            // Otherwise, it's safe to cast
+            return @intCast(asU256);
+        }
+
         /// Returns a big integer representing the value one.
         ///
         /// This function generates a big integer with a value of one. It creates a new instance of the `bigInt` struct

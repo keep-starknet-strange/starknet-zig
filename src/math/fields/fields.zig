@@ -11,37 +11,72 @@ pub const ModSqrtError = error{
     InvalidInput,
 };
 
-/// Represents a finite field element.
+/// Represents a finite field with a specified modulus.
+///
+/// This finite field struct encapsulates operations and properties related to arithmetic operations modulo a given modulus.
+/// It provides methods for arithmetic operations on field elements within the finite field.
+///
+/// # Parameters
+/// - `modulo`: The modulus of the finite field.
+///
+/// # Returns
+/// A finite field struct with the specified modulus.
 pub fn Field(comptime modulo: u256) type {
     return struct {
         const Self = @This();
 
-        // Reprensentation of - modulus^{-1} mod 2^{64}
-        pub const Inv: u64 = computeRMontgomery();
-        // One before the modulus
-        pub const MaxField: bigInt(Limbs) = bigInt(Limbs).fromInt(u256, modulo - 1);
-        // Modulus in non Montgomery format
-        pub const Modulus: bigInt(Limbs) = bigInt(Limbs).fromInt(u256, modulo);
-        /// Number of bits needed to represent a field element with the given modulo.
-        pub const BitSize = @bitSizeOf(u256) - @clz(modulo);
-        /// Number of bytes required to store a field element.
-        pub const BytesSize = @sizeOf(u256);
-        /// The modulo value representing the finite field.
-        pub const Modulo = modulo;
-        /// Half of the modulo value (Modulo - 1) divided by 2.
-        pub const QMinOneDiv2 = (Modulo - 1) / 2;
-        /// The number of bits in each limb (typically 64 for u64).
-        pub const Bits: usize = 64;
-        /// Number of limbs used to represent a field element.
-        pub const Limbs: usize = 4;
-        /// R2 = R^2 % Self::MODULUS (used for Montgomery operations)
-        pub const R2: bigInt(Limbs) = bigInt(Limbs).init(.{
-            18446741271209837569,
-            5151653887,
-            18446744073700081664,
-            576413109808302096,
-        });
+        /// Represents the modular inverse of `modulus` modulo 2^64.
+        ///
+        /// This value is precomputed and represents the modular inverse of `modulus` modulo 2^64. It is used in Montgomery exponentiation.
+        pub const Inv: u64 = computeInvMontgomery();
 
+        /// Represents the value one less than the modulus.
+        ///
+        /// This value is calculated as the value of the modulus minus one and is used for certain arithmetic operations.
+        pub const MaxField: bigInt(Limbs) = bigInt(Limbs).fromInt(u256, modulo - 1);
+
+        /// Represents the modulus in non-Montgomery format.
+        ///
+        /// This value is the modulus of the finite field represented in a non-Montgomery format.
+        pub const Modulus: bigInt(Limbs) = bigInt(Limbs).fromInt(u256, modulo);
+
+        /// Represents the number of bytes required to store a field element.
+        ///
+        /// This value indicates the number of bytes required to store a single field element.
+        pub const BytesSize = @sizeOf(u256);
+
+        /// Represents the modulo value of the finite field.
+        ///
+        /// This value represents the modulo of the finite field.
+        pub const Modulo = modulo;
+
+        /// Represents half of the modulus value.
+        ///
+        /// This value is calculated as (Modulo - 1) divided by 2 and is used in certain arithmetic computations.
+        pub const QMinOneDiv2 = (Modulo - 1) / 2;
+
+        /// Represents the number of bits in each limb.
+        ///
+        /// This value indicates the number of bits in each limb used to represent a field element, typically 64 for u64.
+        pub const Bits: usize = @bitSizeOf(u64);
+
+        /// Represents the number of limbs used to represent a field element.
+        ///
+        /// This value indicates the number of limbs used to represent a single field element.
+        pub const Limbs: usize = 4;
+
+        /// Represents the value of R^2 modulo the modulus.
+        ///
+        /// This value is precomputed and represents the square of R modulo the modulus. It is used for Montgomery operations.
+        ///
+        /// Explanation:
+        /// Let `M` be the power of 2^64 nearest to `Self::MODULUS_BITS`.
+        /// Then `R = M % Self::MODULUS`.
+        pub const R2: bigInt(Limbs) = computeR2Montgomery();
+
+        /// Represents a field element in the finite field.
+        ///
+        /// This field element is a member of the finite field and is represented by a big integer with a specified number of limbs.
         fe: bigInt(Limbs) = bigInt(Limbs){},
 
         /// Creates a `Field` element from an integer value.
@@ -86,38 +121,73 @@ pub fn Field(comptime modulo: u256) type {
             };
         }
 
-        /// Computes the value of -modulo^(-1) mod 2^64 using a specialized algorithm.
+        /// Computes the value of -M^{-1} mod 2^64.
         ///
-        /// This function computes the modular inverse of `-modulo` modulo 2^64, where `modulo` is the modulus of the finite field, using a specialized algorithm.
+        /// This function calculates the modular inverse of `-MODULUS` modulo 2^64.
+        /// The computation involves exponentiating by the multiplicative group order, which is Euler's totient function (φ(2^64)) - 1.
         ///
         /// # Returns:
-        /// The modular inverse of `-modulo` modulo 2^64.
+        /// The modular inverse of `-MODULUS` modulo 2^64.
         ///
         /// Remarks:
         /// - This function is used in Montgomery exponentiation to compute the R value.
-        /// - The computation relies on a special case where the modulus is odd and `2^64` is a power of 2.
-        /// - The algorithm follows the procedure described in the paper by Donald E. Knuth, "The Art of Computer Programming, Volume 2: Seminumerical Algorithms", Section 4.3.1, Algorithm P.
-        /// - We have found (or rediscovered) a very efficient way to compute the modular inverse in the special case that the modulus is odd and `2^64` is a power of 2.
-        pub fn computeRMontgomery() u64 {
-            // Compile-time computation
+        /// - The computation involves exponentiating by the multiplicative group order, which is Euler's totient function (φ(2^64)) - 1.
+        pub fn computeInvMontgomery() u64 {
             comptime {
-                // Initialize the exponentiation value
-                var y: u64 = 1;
+                // Initialize the modular inverse.
+                var inv: u64 = 1;
 
-                // Iterate over the bits of the modulus
-                for (2..Bits + 1) |i| {
-                    // Compute m = modulus * y
-                    const m = Modulus.mul(&bigInt(Limbs).fromInt(u64, y));
+                // Iterate through 63 times.
+                for (0..63) |_| {
+                    // Square the modular inverse.
+                    inv *%= inv;
+                    // Multiply the modular inverse by the least significant limb of the modulus.
+                    inv *%= Modulus.limbs[0];
+                }
+                // Negate the computed modular inverse.
+                return -%inv;
+            }
+        }
 
-                    // Check if the most significant bit of m is set
-                    if ((m[0].limbs[0] << (Bits - i)) >> (Bits - i) != 1) {
-                        // If not set, increment y by 2^(i - 1)
-                        y += 1 << (i - 1);
-                    }
+        /// Computes R^2 in Montgomery domain.
+        ///
+        /// Montgomery multiplication requires precomputing R^2 mod modulus, where R is a power of 2
+        /// such that R > modulus. R^2 is used to convert a product back to the Montgomery domain.
+        ///
+        /// Returns:
+        ///     A big integer representing R^2 in the Montgomery domain.
+        pub fn computeR2Montgomery() bigInt(Limbs) {
+            comptime {
+                @setEvalBranchQuota(50000);
+
+                // Initialize the loop counter
+                var l: u32 = 0;
+
+                // Define `c` as the largest power of 2 smaller than `modulus`
+                while (l < Limbs * Bits) {
+                    // Check if modulus shifted right by `l` bits is not equal to zero
+                    if (Modulus.shr(l).ne(.{})) break;
+                    l += 1;
+                }
+                var c = bigInt(Limbs).one().shl(l);
+
+                // Double `c` and reduce modulo `modulus` until getting
+                // `2^{2 * number_limbs * word_size}` mod `modulus`
+                var i: usize = 1;
+                while (i <= 2 * Limbs * Bits - l) {
+                    // Double `c`
+                    const double_c = c.addWithCarry(&c);
+
+                    // Update `c` using modular reduction
+                    c = if (Modulus.le(&double_c[0]) or double_c[1])
+                        double_c[0].subWithBorrow(&Modulus)[0]
+                    else
+                        double_c[0];
+
+                    i += 1;
                 }
 
-                // Return the computed modular inverse
-                return -%y;
+                return c;
             }
         }
 
@@ -199,16 +269,7 @@ pub fn Field(comptime modulo: u256) type {
         /// Returns a field element with a value of one.
         pub inline fn one() Self {
             comptime {
-                return .{
-                    .fe = bigInt(Limbs).init(
-                        .{
-                            18446744073709551585,
-                            18446744073709551615,
-                            18446744073709551615,
-                            576460752303422960,
-                        },
-                    ),
-                };
+                return toMontgomery(bigInt(Limbs).fromInt(u8, 1));
             }
         }
 
@@ -217,16 +278,7 @@ pub fn Field(comptime modulo: u256) type {
         /// Returns a field element with a value of two.
         pub inline fn two() Self {
             comptime {
-                return .{
-                    .fe = bigInt(Limbs).init(
-                        .{
-                            18446744073709551553,
-                            18446744073709551615,
-                            18446744073709551615,
-                            576460752303422416,
-                        },
-                    ),
-                };
+                return toMontgomery(bigInt(Limbs).fromInt(u8, 2));
             }
         }
 
@@ -235,16 +287,7 @@ pub fn Field(comptime modulo: u256) type {
         /// Returns a field element with a value of three.
         pub inline fn three() Self {
             comptime {
-                return .{
-                    .fe = bigInt(Limbs).init(
-                        .{
-                            18446744073709551521,
-                            18446744073709551615,
-                            18446744073709551615,
-                            576460752303421872,
-                        },
-                    ),
-                };
+                return toMontgomery(bigInt(Limbs).fromInt(u8, 3));
             }
         }
 
@@ -1107,10 +1150,7 @@ pub fn Field(comptime modulo: u256) type {
         /// # Returns
         /// `true` if `self` is less than `rhs`, `false` otherwise.
         pub fn lt(self: *const Self, rhs: *const Self) bool {
-            return switch (self.cmp(rhs)) {
-                .lt => true,
-                else => false,
-            };
+            return self.cmp(rhs) == .lt;
         }
 
         /// Check if this field element is less than or equal to the rhs.
@@ -1137,10 +1177,7 @@ pub fn Field(comptime modulo: u256) type {
         /// # Returns
         /// `true` if `self` is greater than `rhs`, `false` otherwise.
         pub fn gt(self: *const Self, rhs: *const Self) bool {
-            return switch (self.cmp(rhs)) {
-                .gt => true,
-                else => false,
-            };
+            return self.cmp(rhs) == .gt;
         }
 
         /// Check if this field element is greater than or equal to the rhs.
