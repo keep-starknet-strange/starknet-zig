@@ -58,7 +58,7 @@ pub const ECPoint = struct {
         const y_diff = self.y.sub(&point.y);
         const x_sum = self.x.add(point.x);
         const m = try divMod(y_diff, x_diff);
-        const x = m.pow(2).sub(&x_sum);
+        const x = m.powToBigInt(2).sub(&x_sum);
         const y = m.mul(&self.x.sub(&x)).sub(&self.y);
         return .{ .x = x, .y = y };
     }
@@ -89,7 +89,7 @@ pub const ECPoint = struct {
             return ECError.YCoordinateIsZero;
         }
         const m = try self.ecDoubleSlope(alpha);
-        const x = m.pow(2).sub(&self.x.mul(&Felt252.two()));
+        const x = m.powToBigInt(2).sub(&self.x.mul(&Felt252.two()));
         const y = m.mul(&self.x.sub(&x)).sub(&self.y);
         return .{ .x = x, .y = y };
     }
@@ -105,7 +105,7 @@ pub const ECPoint = struct {
     /// The slope.
     pub fn ecDoubleSlope(self: *Self, alpha: Felt252) ECError!Felt252 {
         return try divMod(
-            self.x.pow(2).mul(&Felt252.three()).add(alpha),
+            self.x.powToBigInt(2).mul(&Felt252.three()).add(alpha),
             self.y.mul(&Felt252.two()),
         );
     }
@@ -120,8 +120,8 @@ pub const ECPoint = struct {
     ///
     /// # Returns boolean.
     pub fn pointOnCurve(self: *const Self, alpha: Felt252, beta: Felt252) bool {
-        const lhs = self.y.pow(2);
-        const rhs = self.x.pow(3).add(self.x.mul(&alpha).add(beta));
+        const lhs = self.y.powToBigInt(2);
+        const rhs = self.x.powToBigInt(3).add(self.x.mul(&alpha).add(beta));
         return lhs.eql(rhs);
     }
 };

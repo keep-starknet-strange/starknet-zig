@@ -387,34 +387,17 @@ test "Felt252 square" {
     );
 }
 
-test "Felt252 pow2" {
-    try expectEqual(
-        @as(
-            u256,
-            0x4cdffe7c7b3f76a6ce28dde767fa09b60e963927bbd16d8b0d3a0fc13c6fa0,
-        ),
-        Felt252.fromInt(u8, 10).pow2(10).toU256(),
-    );
-    try expectEqual(
-        @as(
-            u256,
-            0x25f7dc4108a227e91fb20740a4866274f449e9d427775a58bb7cb4eaff1e653,
-        ),
-        Felt252.fromInt(u256, std.math.maxInt(u256)).pow2(3).toU256(),
-    );
-}
-
 test "Felt252 pow" {
     try expectEqual(
         @as(u256, 0x2540be400),
-        Felt252.fromInt(u8, 10).pow(10).toU256(),
+        Felt252.fromInt(u8, 10).powToBigInt(bigInt(4).fromInt(u8, 10)).toU256(),
     );
     try expectEqual(
         @as(
             u256,
             0x48ea9fffffffffffffff5ffffffffffffffe5000000000000449f,
         ),
-        Felt252.fromInt(u64, std.math.maxInt(u64)).pow(5).toU256(),
+        Felt252.fromInt(u64, std.math.maxInt(u64)).powToBigInt(bigInt(4).fromInt(u64, 5)).toU256(),
     );
 }
 
@@ -682,6 +665,7 @@ test "Felt252: arithmetic multiplication operations" {
         const zero = Felt252.zero();
         const one = Felt252.one();
         const rnd_u8 = random.int(u8);
+        const bigint_rnd_u8 = bigInt(4).fromInt(u256, rnd_u8);
 
         // Associativity
         try expect(a.mul(&b).mul(&c).eql(a.mul(&c.mul(&b))));
@@ -737,9 +721,12 @@ test "Felt252: arithmetic multiplication operations" {
             b_100 = b_100.mul(&b);
             c_100 = c_100.mul(&c);
         }
-        try expect(a.pow(rnd_u8).eql(a_100));
-        try expect(b.pow(rnd_u8).eql(b_100));
-        try expect(c.pow(rnd_u8).eql(c_100));
+        try expect(a.powToBigInt(bigint_rnd_u8).eql(a_100));
+        try expect(b.powToBigInt(bigint_rnd_u8).eql(b_100));
+        try expect(c.powToBigInt(bigint_rnd_u8).eql(c_100));
+        try expect(a.powToInt(rnd_u8).eql(a_100));
+        try expect(b.powToInt(rnd_u8).eql(b_100));
+        try expect(c.powToInt(rnd_u8).eql(c_100));
     }
 }
 

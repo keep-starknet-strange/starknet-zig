@@ -29,6 +29,15 @@ pub fn Field(comptime n_limbs: usize, comptime modulo: u256) type {
         /// This value is precomputed and represents the modular inverse of `modulus` modulo 2^64. It is used in Montgomery exponentiation.
         pub const Inv: u64 = computeInvMontgomery();
 
+        /// Represents the value of R^2 modulo the modulus.
+        ///
+        /// This value is precomputed and represents the square of R modulo the modulus. It is used for Montgomery operations.
+        ///
+        /// Explanation:
+        /// Let `M` be the power of 2^64 nearest to `Self::MODULUS_BITS`.
+        /// Then `R = M % Self::MODULUS`.
+        pub const R2: big_int = computeR2Montgomery();
+
         /// Represents the value one less than the modulus.
         ///
         /// This value is calculated as the value of the modulus minus one and is used for certain arithmetic operations.
@@ -42,7 +51,7 @@ pub fn Field(comptime n_limbs: usize, comptime modulo: u256) type {
         /// Represents the number of bytes required to store a field element.
         ///
         /// This value indicates the number of bytes required to store a single field element.
-        pub const BytesSize = @sizeOf(u256);
+        pub const BytesSize = n_limbs * @sizeOf(u64);
 
         /// Represents half of the modulus value.
         ///
@@ -53,15 +62,6 @@ pub fn Field(comptime n_limbs: usize, comptime modulo: u256) type {
         ///
         /// This value indicates the number of bits in each limb used to represent a field element, typically 64 for u64.
         pub const Bits: usize = @bitSizeOf(u64);
-
-        /// Represents the value of R^2 modulo the modulus.
-        ///
-        /// This value is precomputed and represents the square of R modulo the modulus. It is used for Montgomery operations.
-        ///
-        /// Explanation:
-        /// Let `M` be the power of 2^64 nearest to `Self::MODULUS_BITS`.
-        /// Then `R = M % Self::MODULUS`.
-        pub const R2: big_int = computeR2Montgomery();
 
         /// Represents a field element in the finite field.
         ///
@@ -736,29 +736,100 @@ pub fn Field(comptime n_limbs: usize, comptime modulo: u256) type {
             if (comptime Self.modulusHasSpareBit()) self.subModulusAssign();
         }
 
-        /// Raise a field element to a power of 2.
-        ///
-        /// Computes the current field element raised to the power of 2 to the `exponent` power.
-        /// The result is equivalent to repeatedly squaring the field element.
-        pub fn pow2(self: Self, comptime exponent: u8) Self {
-            var ret = self;
-            inline for (exponent) |_| ret = ret.mul(&ret);
-            return ret;
-        }
-
         /// Raise a field element to a general power.
         ///
         /// Computes the field element raised to a general power specified by the `exponent`.
-        pub fn pow(self: Self, exponent: u256) Self {
+        ///
+        /// # Parameters
+        /// - `exponent`: The exponent to raise the field element to.
+        ///
+        /// # Returns
+        /// The result of raising the field element to the specified exponent.
+        pub fn powToInt(self: Self, exponent: u256) Self {
+            // Initialize result as the identity element
             var res = one();
+            // Copy the exponent for manipulation
             var exp = exponent;
+            // Copy the base field element for manipulation
             var base = self;
 
+            // Perform binary exponentiation algorithm
             while (exp > 0) : (exp /= 2) {
-                if (exp & 1 == 1) res = res.mul(&base);
-                base = base.mul(&base);
+                // If current bit of exponent is 1, multiply result by base
+                if (exp & 1 == 1) res.mulAssign(&base);
+                // Square the base for the next iteration
+                base.squareAssign();
             }
+            // Return the computed result
             return res;
+        }
+
+        /// Raise a field element to a power specified by a big integer.
+        ///
+        /// Computes the field element raised to a power specified by a big integer exponent.
+        ///
+        /// # Parameters
+        /// - `exponent`: The big integer exponent to raise the field element to.
+        ///
+        /// # Returns
+        /// The result of raising the field element to the specified big integer exponent.
+        pub fn powToBigInt(self: *const Self, exponent: big_int) Self {
+            // Copy the field element to a mutable variable
+            var a = self.*;
+            // Raise the field element to the specified big integer exponent
+            a.powAssign(&exponent);
+            // Return the result
+            return a;
+        }
+
+        /// Raise a field element to a power specified by a big integer and assigns the result to the field element itself.
+        ///
+        /// Computes the field element raised to a power specified by a big integer exponent and assigns the result to the field element itself.
+        ///
+        /// # Parameters
+        /// - `exponent`: The big integer exponent to raise the field element to.
+        pub fn powAssign(self: *Self, exponent: *const big_int) void {
+            // If the exponent is zero, assign 1 to the field element and return
+            if (exponent.isZero()) {
+                self.* = comptime one();
+                return;
+            }
+            // If the exponent is 1, no computation needed, return
+            if (exponent.eql(comptime big_int.one())) return;
+
+            // Copy the exponent for manipulation
+            var exp = exponent.*;
+
+            // Perform binary exponentiation algorithm
+            while (exp.bitAnd(&comptime big_int.one()).eql(comptime .{})) {
+                // Square the field element for each bit of exponent
+                self.squareAssign();
+                // Divide the exponent by 2 for the next iteration
+                exp.shrAssign(1);
+            }
+
+            // If exponent is zero then return, end of the calculation
+            if (exp.isZero()) return;
+
+            // Copy the base field element for manipulation
+            var base = self.*;
+
+            // Divide the exponent by 2 for the first iteration
+            exp.shrAssign(1);
+
+            // While exponent not equal to zero
+            while (exp.ne(comptime .{})) {
+                // Square the base
+                base.squareAssign();
+
+                // If current bit of exponent is 1, multiply field element by base
+                if (exp.bitAnd(&comptime big_int.one()).eql(comptime big_int.one())) {
+                    self.mulAssign(&base);
+                }
+
+                // Divide the exponent by 2 for the next iteration
+                exp.shrAssign(1);
+            }
         }
 
         /// Batch inversion of multiple field elements.
@@ -1103,7 +1174,7 @@ pub fn Field(comptime n_limbs: usize, comptime modulo: u256) type {
             // p, -1 otherwise.
 
             // Calculate a^(p-1)/2 modulo p
-            const ls = a.pow(comptime QMinOneDiv2);
+            const ls = a.powToBigInt(comptime big_int.fromInt(u256, QMinOneDiv2));
 
             // Check if a^(p-1)/2 is equivalent to -1 modulo p
             if (ls.toU256() == comptime modulo - 1) return -1;
