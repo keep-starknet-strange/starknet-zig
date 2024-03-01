@@ -21,6 +21,9 @@ pub fn Field(comptime n_limbs: usize, comptime modulo: u256) type {
     return struct {
         const Self = @This();
 
+        /// Represents a big integer with a specified number of limbs.
+        const big_int = bigInt(n_limbs);
+
         /// Represents the modular inverse of `modulus` modulo 2^64.
         ///
         /// This value is precomputed and represents the modular inverse of `modulus` modulo 2^64. It is used in Montgomery exponentiation.
@@ -29,12 +32,12 @@ pub fn Field(comptime n_limbs: usize, comptime modulo: u256) type {
         /// Represents the value one less than the modulus.
         ///
         /// This value is calculated as the value of the modulus minus one and is used for certain arithmetic operations.
-        pub const MaxField: bigInt(n_limbs) = bigInt(n_limbs).fromInt(u256, modulo - 1);
+        pub const MaxField: big_int = big_int.fromInt(u256, modulo - 1);
 
         /// Represents the modulus in non-Montgomery format.
         ///
         /// This value is the modulus of the finite field represented in a non-Montgomery format.
-        pub const Modulus: bigInt(n_limbs) = bigInt(n_limbs).fromInt(u256, modulo);
+        pub const Modulus: big_int = big_int.fromInt(u256, modulo);
 
         /// Represents the number of bytes required to store a field element.
         ///
@@ -58,12 +61,12 @@ pub fn Field(comptime n_limbs: usize, comptime modulo: u256) type {
         /// Explanation:
         /// Let `M` be the power of 2^64 nearest to `Self::MODULUS_BITS`.
         /// Then `R = M % Self::MODULUS`.
-        pub const R2: bigInt(n_limbs) = computeR2Montgomery();
+        pub const R2: big_int = computeR2Montgomery();
 
         /// Represents a field element in the finite field.
         ///
         /// This field element is a member of the finite field and is represented by a big integer with a specified number of limbs.
-        fe: bigInt(n_limbs) = bigInt(n_limbs){},
+        fe: big_int = big_int{},
 
         /// Creates a `Field` element from an integer value.
         ///
@@ -86,11 +89,11 @@ pub fn Field(comptime n_limbs: usize, comptime modulo: u256) type {
             // Switch based on the size of the integer value
             return switch (comptime @typeInfo(T).Int.bits) {
                 // For integers up to 63 bits, directly initialize the field element
-                0...63 => Self.toMontgomery(bigInt(n_limbs).init(.{ @intCast(num), 0, 0, 0 })),
+                0...63 => Self.toMontgomery(big_int.init(.{ @intCast(num), 0, 0, 0 })),
                 // For 64-bit integers, initialize the field element directly
-                Bits => Self.toMontgomery(bigInt(n_limbs).init(.{ num, 0, 0, 0 })),
+                Bits => Self.toMontgomery(big_int.init(.{ num, 0, 0, 0 })),
                 // For integers from 65 to 128 bits, perform truncation and division
-                65...128 => Self.toMontgomery(bigInt(n_limbs).init(
+                65...128 => Self.toMontgomery(big_int.init(
                     .{
                         @truncate(@mod(num, @as(u128, @intCast(std.math.maxInt(u64))) + 1)),
                         @truncate(@divTrunc(num, @as(u128, @intCast(std.math.maxInt(u64))) + 1)),
@@ -102,7 +105,7 @@ pub fn Field(comptime n_limbs: usize, comptime modulo: u256) type {
                 else => blk: {
                     var lbe = [_]u8{0} ** BytesSize;
                     std.mem.writeInt(T, &lbe, num % modulo, .little);
-                    break :blk Self.toMontgomery(bigInt(n_limbs).fromBytesLe(lbe));
+                    break :blk Self.toMontgomery(big_int.fromBytesLe(lbe));
                 },
             };
         }
@@ -156,7 +159,7 @@ pub fn Field(comptime n_limbs: usize, comptime modulo: u256) type {
         ///
         /// Returns:
         ///     A big integer representing R^2 in the Montgomery domain.
-        pub fn computeR2Montgomery() bigInt(n_limbs) {
+        pub fn computeR2Montgomery() big_int {
             comptime {
                 @setEvalBranchQuota(50000);
 
@@ -169,7 +172,7 @@ pub fn Field(comptime n_limbs: usize, comptime modulo: u256) type {
                     if (Modulus.shr(l).ne(.{})) break;
                     l += 1;
                 }
-                var c = bigInt(n_limbs).one().shl(l);
+                var c = big_int.one().shl(l);
 
                 // Double `c` and reduce modulo `modulus` until getting
                 // `2^{2 * number_limbs * word_size}` mod `modulus`
@@ -203,7 +206,7 @@ pub fn Field(comptime n_limbs: usize, comptime modulo: u256) type {
         ///
         /// # Returns:
         /// A new `Field` element in Montgomery form representing the input value.
-        pub fn toMontgomery(value: bigInt(n_limbs)) Self {
+        pub fn toMontgomery(value: big_int) Self {
             // Initialize a field element with the given value
             var r: Self = .{ .fe = value };
 
@@ -225,7 +228,7 @@ pub fn Field(comptime n_limbs: usize, comptime modulo: u256) type {
         ///
         /// # Returns:
         /// A `bigInt` value representing the field element in non-Montgomery form.
-        pub fn fromMontgomery(self: Self) bigInt(n_limbs) {
+        pub fn fromMontgomery(self: Self) big_int {
             // Initialize an array to store the limbs of the resulting value
             var r = self.fe.limbs;
 
@@ -269,7 +272,7 @@ pub fn Field(comptime n_limbs: usize, comptime modulo: u256) type {
         /// Returns a field element with a value of one.
         pub inline fn one() Self {
             comptime {
-                return toMontgomery(bigInt(n_limbs).fromInt(u8, 1));
+                return toMontgomery(big_int.fromInt(u8, 1));
             }
         }
 
@@ -278,7 +281,7 @@ pub fn Field(comptime n_limbs: usize, comptime modulo: u256) type {
         /// Returns a field element with a value of two.
         pub inline fn two() Self {
             comptime {
-                return toMontgomery(bigInt(n_limbs).fromInt(u8, 2));
+                return toMontgomery(big_int.fromInt(u8, 2));
             }
         }
 
@@ -287,7 +290,7 @@ pub fn Field(comptime n_limbs: usize, comptime modulo: u256) type {
         /// Returns a field element with a value of three.
         pub inline fn three() Self {
             comptime {
-                return toMontgomery(bigInt(n_limbs).fromInt(u8, 3));
+                return toMontgomery(big_int.fromInt(u8, 3));
             }
         }
 
@@ -302,7 +305,7 @@ pub fn Field(comptime n_limbs: usize, comptime modulo: u256) type {
         /// # Returns:
         /// A field element in Montgomery representation.
         pub fn fromBytesLe(bytes: [BytesSize]u8) Self {
-            return Self.toMontgomery(bigInt(n_limbs).fromBytesLe(bytes));
+            return Self.toMontgomery(big_int.fromBytesLe(bytes));
         }
 
         /// Converts a byte array into a field element in Montgomery representation.
@@ -316,7 +319,7 @@ pub fn Field(comptime n_limbs: usize, comptime modulo: u256) type {
         /// # Returns:
         /// A field element in Montgomery representation.
         pub fn fromBytesBe(bytes: [BytesSize]u8) Self {
-            return Self.toMontgomery(bigInt(n_limbs).fromBytesBe(bytes));
+            return Self.toMontgomery(big_int.fromBytesBe(bytes));
         }
 
         /// Converts the field element to a little-endian bits array.
@@ -956,7 +959,7 @@ pub fn Field(comptime n_limbs: usize, comptime modulo: u256) type {
             if (self.isZero()) return null;
 
             // Constant representing the value 1 in the field
-            const o = comptime bigInt(n_limbs).one();
+            const o = comptime big_int.one();
 
             var u = self.fe;
             var v = Modulus;
