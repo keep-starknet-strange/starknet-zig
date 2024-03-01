@@ -1,6 +1,4 @@
-// Core imports.
 const std = @import("std");
-// Local imports.
 const fields = @import("fields.zig");
 const bigInt = @import("biginteger.zig").bigInt;
 const STARKNET_PRIME = @import("./constants.zig").STARKNET_PRIME;
@@ -13,8 +11,6 @@ const expectEqualSlices = std.testing.expectEqualSlices;
 // Base field for the Stark curve.
 // The prime is 0x800000000000011000000000000000000000000000000000000000000000001.
 pub const Felt252 = fields.Field(STARKNET_PRIME);
-
-pub const PRIME_STR = "0x800000000000011000000000000000000000000000000000000000000000001";
 
 test "Felt252: fromU8 should return a field element from a u8" {
     try expectEqual(
