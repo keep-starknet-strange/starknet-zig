@@ -1042,7 +1042,7 @@ pub fn Field(comptime modulo: u256) type {
         /// Returns:
         ///   - true if the field elements are equal, false otherwise.
         pub fn eql(self: Self, rhs: Self) bool {
-            return std.mem.eql(u64, &self.fe.limbs, &rhs.fe.limbs);
+            return self.fe.eql(rhs.fe);
         }
 
         /// Convert the field element to a u256 integer.
