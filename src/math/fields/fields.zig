@@ -2,8 +2,8 @@ const std = @import("std");
 const arithmetic = @import("./arithmetic.zig");
 const bigInt = @import("./biginteger.zig").bigInt;
 
-pub const ModSqrtError = error{
-    InvalidInput,
+pub const FieldError = error{
+    DivisionByZero,
 };
 
 /// Represents a finite field with a specified modulus.
@@ -88,7 +88,7 @@ pub fn Field(comptime modulo: u256) type {
             std.debug.assert(num >= 0);
 
             // Switch based on the size of the integer value
-            return switch (@typeInfo(T).Int.bits) {
+            return switch (comptime @typeInfo(T).Int.bits) {
                 // For integers up to 63 bits, directly initialize the field element
                 0...63 => Self.toMontgomery(bigInt(Limbs).init(.{ @intCast(num), 0, 0, 0 })),
                 // For 64-bit integers, initialize the field element directly
@@ -109,6 +109,20 @@ pub fn Field(comptime modulo: u256) type {
                     break :blk Self.toMontgomery(bigInt(Limbs).fromBytesLe(lbe));
                 },
             };
+        }
+
+        /// Generates a random field element within the finite field using a provided random number generator.
+        ///
+        /// This function generates a random field element within the specified finite field using a provided random number generator (`r`).
+        /// The random field element is obtained by converting a randomly generated integer value to a field element within the finite field.
+        ///
+        /// # Arguments:
+        /// - `r`: The random number generator used to generate the random integer value.
+        ///
+        /// # Returns:
+        /// A random field element within the finite field.
+        pub fn rand(r: std.Random) Self {
+            return Self.fromInt(u256, r.int(u256));
         }
 
         /// Computes the value of -M^{-1} mod 2^64.
@@ -169,7 +183,7 @@ pub fn Field(comptime modulo: u256) type {
                     const double_c = c.addWithCarry(&c);
 
                     // Update `c` using modular reduction
-                    c = if (Modulus.le(&double_c[0]) or double_c[1])
+                    c = if (Modulus.lte(&double_c[0]) or double_c[1])
                         double_c[0].subWithBorrow(&Modulus)[0]
                     else
                         double_c[0];
@@ -222,7 +236,7 @@ pub fn Field(comptime modulo: u256) type {
             // Iterate over the limbs of the field element
             inline for (0..Limbs) |i| {
                 // Compute the Montgomery factor k
-                const k: u64 = r[i] *% Inv;
+                const k: u64 = r[i] *% comptime Inv;
                 var carry: u64 = 0;
 
                 // Multiply the current limb with k and the modulus, adding the carry
@@ -428,27 +442,6 @@ pub fn Field(comptime modulo: u256) type {
             return if (v[2]) Self.fromInt(u256, @intCast(v[0])) else null;
         }
 
-        pub fn mod(self: Self, rhs: Self) Self {
-            return Self.fromInt(
-                u256,
-                @mod(self.toU256(), rhs.toU256()),
-            );
-        }
-
-        // multiply two field elements and return the result modulo the modulus
-        // support overflowed multiplication
-        pub fn mulModFloor(
-            self: Self,
-            rhs: Self,
-            modulus: Self,
-        ) Self {
-            const s: u512 = @intCast(self.toU256());
-            const o: u512 = @intCast(rhs.toU256());
-            const m: u512 = @intCast(modulus.toU256());
-
-            return Self.fromInt(u256, @intCast((s * o) % m));
-        }
-
         /// Determines whether the current modulus allows for a specific optimization in modular multiplication.
         ///
         /// This function checks if the highest bit of the modulus is zero and not all of the remaining bits are set,
@@ -535,35 +528,38 @@ pub fn Field(comptime modulo: u256) type {
         ///
         /// For another reference implementation, see [arkworks-rs/algebra](https://github.com/arkworks-rs/algebra/blob/3a6156785e12eeb9083a7a402ac037de01f6c069/ff/src/fields/models/fp/montgomery_backend.rs#L151)
         pub fn mulAssign(self: *Self, rhs: *const Self) void {
-            // Initialize the result array
-            var r = [_]u64{0} ** Limbs;
+            // TODO: add CIOS implementation in case no carry mul optimization cannot be used
+            if (comptime canUseNoCarryMulOptimization()) {
+                // Initialize the result array
+                var r = [_]u64{0} ** Limbs;
 
-            // Iterate over the digits of the right-hand side operand
-            inline for (0..Limbs) |i| {
-                // Perform the first multiplication and accumulation
-                var carry1: u64 = 0;
-                r[0] = arithmetic.mac(r[0], self.fe.limbs[0], rhs.fe.limbs[i], &carry1);
+                // Iterate over the digits of the right-hand side operand
+                inline for (0..Limbs) |i| {
+                    // Perform the first multiplication and accumulation
+                    var carry1: u64 = 0;
+                    r[0] = arithmetic.mac(r[0], self.fe.limbs[0], rhs.fe.limbs[i], &carry1);
 
-                // Compute the Montgomery factor k and perform the corresponding multiplication and reduction
-                const k: u64 = r[0] *% comptime Inv;
-                var carry2: u64 = 0;
-                arithmetic.macDiscard(r[0], k, comptime Self.Modulus.limbs[0], &carry2);
+                    // Compute the Montgomery factor k and perform the corresponding multiplication and reduction
+                    const k: u64 = r[0] *% comptime Inv;
+                    var carry2: u64 = 0;
+                    arithmetic.macDiscard(r[0], k, comptime Self.Modulus.limbs[0], &carry2);
 
-                // Iterate over the remaining digits and perform the multiplications and accumulations
-                inline for (1..Limbs) |j| {
-                    r[j] = arithmetic.macWithCarry(r[j], self.fe.limbs[j], rhs.fe.limbs[i], &carry1);
-                    r[j - 1] = arithmetic.macWithCarry(r[j], k, Self.Modulus.limbs[j], &carry2);
+                    // Iterate over the remaining digits and perform the multiplications and accumulations
+                    inline for (1..Limbs) |j| {
+                        r[j] = arithmetic.macWithCarry(r[j], self.fe.limbs[j], rhs.fe.limbs[i], &carry1);
+                        r[j - 1] = arithmetic.macWithCarry(r[j], k, Self.Modulus.limbs[j], &carry2);
+                    }
+
+                    // Add the final carries
+                    r[Limbs - 1] = carry1 + carry2;
                 }
 
-                // Add the final carries
-                r[Limbs - 1] = carry1 + carry2;
+                // Store the result back into the original object
+                @memcpy(&self.fe.limbs, &r);
+
+                // Perform modulus subtraction if needed
+                self.subModulusAssign();
             }
-
-            // Store the result back into the original object
-            @memcpy(&self.fe.limbs, &r);
-
-            // Perform modulus subtraction if needed
-            self.subModulusAssign();
         }
 
         /// This function negates the provided field element and returns the result as a new field element.
@@ -766,11 +762,6 @@ pub fn Field(comptime modulo: u256) type {
             return res;
         }
 
-        /// Bitand operation
-        pub fn bitAnd(self: Self, rhs: Self) Self {
-            return Self.fromInt(u256, self.toU256() & rhs.toU256());
-        }
-
         /// Batch inversion of multiple field elements.
         ///
         /// Performs batch inversion of a slice of field elements in place.
@@ -789,10 +780,6 @@ pub fn Field(comptime modulo: u256) type {
             }
         }
 
-        pub fn rand(r: std.Random) Self {
-            return Self.fromInt(u256, r.int(u256));
-        }
-
         /// Checks if the field element is greater than or equal to the modulus.
         ///
         /// This function compares the field element `self` with the modulus of the finite field.
@@ -804,7 +791,7 @@ pub fn Field(comptime modulo: u256) type {
         /// Returns:
         ///   - true if the field element is greater than or equal to the modulus, false otherwise.
         pub fn isGeModulus(self: *const Self) bool {
-            return self.fe.ge(&Modulus);
+            return self.fe.gte(&Modulus);
         }
 
         /// Subtracts the modulus from the field element in place.
@@ -1027,11 +1014,21 @@ pub fn Field(comptime modulo: u256) type {
             return if (u.eql(o)) b else c;
         }
 
-        /// Divide one field element by another.
+        /// Divides one field element by another field element.
         ///
-        /// Divides the current field element by another field element.
-        pub fn div(self: Self, den: Self) !Self {
-            return self.mul(&(den.inverse() orelse return error.DivisionByZero));
+        /// This function divides the current field element (`self`) by another field element (`den`).
+        /// If the denominator (`den`) is zero, it returns an error indicating a division by zero.
+        ///
+        /// # Arguments:
+        /// - `den`: The field element by which to divide the current field element.
+        ///
+        /// # Returns:
+        /// - Result of the division operation as a new field element.
+        ///
+        /// Errors:
+        /// - If the denominator is zero, a division by zero error is returned.
+        pub fn div(self: Self, den: Self) FieldError!Self {
+            return self.mul(&(den.inverse() orelse return FieldError.DivisionByZero));
         }
 
         /// Check if two field elements are equal.
@@ -1151,11 +1148,8 @@ pub fn Field(comptime modulo: u256) type {
         ///
         /// # Returns
         /// `true` if `self` is less than or equal to `rhs`, `false` otherwise.
-        pub fn le(self: *const Self, rhs: *const Self) bool {
-            return switch (self.cmp(rhs)) {
-                .lt, .eq => true,
-                else => false,
-            };
+        pub fn lte(self: *const Self, rhs: *const Self) bool {
+            return self.cmp(rhs).compare(.lte);
         }
 
         /// Check if this field element is greater than the rhs.
@@ -1178,11 +1172,8 @@ pub fn Field(comptime modulo: u256) type {
         ///
         /// # Returns
         /// `true` if `self` is greater than or equal to `rhs`, `false` otherwise.
-        pub fn ge(self: *const Self, rhs: *const Self) bool {
-            return switch (self.cmp(rhs)) {
-                .gt, .eq => true,
-                else => false,
-            };
+        pub fn gte(self: *const Self, rhs: *const Self) bool {
+            return self.cmp(rhs).compare(.gte);
         }
     };
 }

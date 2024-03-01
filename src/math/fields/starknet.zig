@@ -517,15 +517,15 @@ test "Felt252 lt" {
     ));
 }
 
-test "Felt252 le" {
-    try expect(Felt252.fromInt(u8, 10).le(&Felt252.fromInt(u64, 343535)));
-    try expect(Felt252.fromInt(u64, 433).le(&Felt252.fromInt(u64, 343535)));
-    try expect(!Felt252.fromInt(u64, 543636535).le(&Felt252.fromInt(u64, 434)));
-    try expect(!Felt252.fromInt(u256, std.math.maxInt(u256)).le(&Felt252.fromInt(u64, 21313)));
-    try expect(Felt252.fromInt(u8, 10).le(&Felt252.fromInt(u8, 10)));
-    try expect(Felt252.one().le(&Felt252.one()));
-    try expect(Felt252.zero().le(&Felt252.zero()));
-    try expect(Felt252.fromInt(u8, 10).le(
+test "Felt252 lte" {
+    try expect(Felt252.fromInt(u8, 10).lte(&Felt252.fromInt(u64, 343535)));
+    try expect(Felt252.fromInt(u64, 433).lte(&Felt252.fromInt(u64, 343535)));
+    try expect(!Felt252.fromInt(u64, 543636535).lte(&Felt252.fromInt(u64, 434)));
+    try expect(!Felt252.fromInt(u256, std.math.maxInt(u256)).lte(&Felt252.fromInt(u64, 21313)));
+    try expect(Felt252.fromInt(u8, 10).lte(&Felt252.fromInt(u8, 10)));
+    try expect(Felt252.one().lte(&Felt252.one()));
+    try expect(Felt252.zero().lte(&Felt252.zero()));
+    try expect(Felt252.fromInt(u8, 10).lte(
         &Felt252.fromInt(u256, 10 + STARKNET_PRIME),
     ));
 }
@@ -543,15 +543,15 @@ test "Felt252 gt" {
     ));
 }
 
-test "Felt252 ge" {
-    try expect(!Felt252.fromInt(u8, 10).ge(&Felt252.fromInt(u64, 343535)));
-    try expect(!Felt252.fromInt(u64, 433).ge(&Felt252.fromInt(u64, 343535)));
-    try expect(Felt252.fromInt(u64, 543636535).ge(&Felt252.fromInt(u64, 434)));
-    try expect(Felt252.fromInt(u256, std.math.maxInt(u256)).ge(&Felt252.fromInt(u64, 21313)));
-    try expect(Felt252.fromInt(u8, 10).ge(&Felt252.fromInt(u8, 10)));
-    try expect(Felt252.one().ge(&Felt252.one()));
-    try expect(Felt252.zero().ge(&Felt252.zero()));
-    try expect(Felt252.fromInt(u8, 10).ge(
+test "Felt252 gte" {
+    try expect(!Felt252.fromInt(u8, 10).gte(&Felt252.fromInt(u64, 343535)));
+    try expect(!Felt252.fromInt(u64, 433).gte(&Felt252.fromInt(u64, 343535)));
+    try expect(Felt252.fromInt(u64, 543636535).gte(&Felt252.fromInt(u64, 434)));
+    try expect(Felt252.fromInt(u256, std.math.maxInt(u256)).gte(&Felt252.fromInt(u64, 21313)));
+    try expect(Felt252.fromInt(u8, 10).gte(&Felt252.fromInt(u8, 10)));
+    try expect(Felt252.one().gte(&Felt252.one()));
+    try expect(Felt252.zero().gte(&Felt252.zero()));
+    try expect(Felt252.fromInt(u8, 10).gte(
         &Felt252.fromInt(u256, 10 + STARKNET_PRIME),
     ));
 }

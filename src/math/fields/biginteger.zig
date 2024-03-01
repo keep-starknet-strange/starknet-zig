@@ -688,10 +688,7 @@ pub fn bigInt(comptime N: usize) type {
         ///   - `true` if `self` is less than `rhs`, otherwise `false`.
         pub fn lt(self: *const Self, rhs: *const Self) bool {
             // Compare the big integers and return true if self is less than rhs
-            return switch (self.cmp(rhs)) {
-                .lt => true,
-                else => false,
-            };
+            return self.cmp(rhs) == .lt;
         }
 
         /// Checks if a big integer is less than or equal to another big integer.
@@ -704,12 +701,9 @@ pub fn bigInt(comptime N: usize) type {
         ///
         /// Returns:
         ///   - `true` if `self` is less than or equal to `rhs`, otherwise `false`.
-        pub fn le(self: *const Self, rhs: *const Self) bool {
+        pub fn lte(self: *const Self, rhs: *const Self) bool {
             // Compare the big integers and return true if self is less than or equal to rhs
-            return switch (self.cmp(rhs)) {
-                .lt, .eq => true,
-                else => false,
-            };
+            return self.cmp(rhs).compare(.lte);
         }
 
         /// Checks if a big integer is greater than another big integer.
@@ -724,10 +718,7 @@ pub fn bigInt(comptime N: usize) type {
         ///   - `true` if `self` is greater than `rhs`, otherwise `false`.
         pub fn gt(self: *const Self, rhs: *const Self) bool {
             // Compare the big integers and return true if self is greater than rhs
-            return switch (self.cmp(rhs)) {
-                .gt => true,
-                else => false,
-            };
+            return self.cmp(rhs) == .gt;
         }
 
         /// Checks if a big integer is greater than or equal to another big integer.
@@ -740,12 +731,9 @@ pub fn bigInt(comptime N: usize) type {
         ///
         /// Returns:
         ///   - `true` if `self` is greater than or equal to `rhs`, otherwise `false`.
-        pub fn ge(self: *const Self, rhs: *const Self) bool {
+        pub fn gte(self: *const Self, rhs: *const Self) bool {
             // Compare the big integers and return true if self is greater than or equal to rhs
-            return switch (self.cmp(rhs)) {
-                .gt, .eq => true,
-                else => false,
-            };
+            return self.cmp(rhs).compare(.gte);
         }
 
         /// Converts a big integer to a little-endian bit representation.
@@ -1541,9 +1529,9 @@ test "bigInt: fuzzing test for comparison" {
         try expect(c.cmp(&c) == .eq);
 
         // Assert that each big integer is less than or equal to itself
-        try expect(a.le(&a));
-        try expect(b.le(&b));
-        try expect(c.le(&c));
+        try expect(a.lte(&a));
+        try expect(b.lte(&b));
+        try expect(c.lte(&c));
 
         // Assert that each big integer is not less than itself
         try expect(!a.lt(&a));
@@ -1556,9 +1544,9 @@ test "bigInt: fuzzing test for comparison" {
         try expect(!c.gt(&c));
 
         // Assert that each big integer is greater than or equal to itself
-        try expect(a.ge(&a));
-        try expect(b.ge(&b));
-        try expect(c.ge(&c));
+        try expect(a.gte(&a));
+        try expect(b.gte(&b));
+        try expect(c.gte(&c));
 
         // Assert that constant big integers are equal to themselves
         try expect(one.eql(one));
@@ -1566,17 +1554,17 @@ test "bigInt: fuzzing test for comparison" {
 
         // Assert that one is greater than zero and greater than or equal to zero
         try expect(one.gt(&zero));
-        try expect(one.ge(&zero));
+        try expect(one.gte(&zero));
         // Assert that one is not less than zero and not less than or equal to zero
         try expect(!one.lt(&zero));
-        try expect(!one.le(&zero));
+        try expect(!one.lte(&zero));
 
         // Assert that zero is not greater than one and not greater than or equal to one
         try expect(!zero.gt(&one));
-        try expect(!zero.ge(&one));
+        try expect(!zero.gte(&one));
         // Assert that zero is less than one and less than or equal to one
         try expect(zero.lt(&one));
-        try expect(zero.le(&one));
+        try expect(zero.lte(&one));
     }
 }
 
