@@ -29,7 +29,7 @@ pub fn main() !void {
     const a = Felt252.fromInt(u256, 0x800000000000011000000000000000000000000000000000000000000000000);
     const b = Felt252.fromInt(u256, 0x4);
     const c = a.add(b);
-    std.debug.print("\nResult: {}\n", .{c.toInt()});
+    std.debug.print("\nResult: {}\n", .{c.toU256()});
 }
 
 // *****************************************************************************

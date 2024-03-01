@@ -34,15 +34,6 @@ pub fn Field(comptime modulo: u256) type {
         pub const Bits: usize = 64;
         /// Number of limbs used to represent a field element.
         pub const Limbs: usize = 4;
-        /// The smallest value that can be represented by this integer type.
-        pub const Min = Self.zero();
-        /// The largest value that can be represented by this integer type.
-        pub const Max: bigInt(Limbs) = bigInt(Limbs).init(.{
-            std.math.maxInt(u64),
-            std.math.maxInt(u64),
-            std.math.maxInt(u64),
-            std.math.maxInt(u64),
-        });
         /// R2 = R^2 % Self::MODULUS (used for Montgomery operations)
         pub const R2: bigInt(Limbs) = bigInt(Limbs).init(.{
             18446741271209837569,
@@ -340,7 +331,7 @@ pub fn Field(comptime modulo: u256) type {
         ///
         /// Determines whether the field element is larger than half of the field's modulus.
         pub fn lexographicallyLargest(self: Self) bool {
-            return self.toInt() > QMinOneDiv2;
+            return self.toU256() > QMinOneDiv2;
         }
 
         /// Doubles a field element.
@@ -400,14 +391,14 @@ pub fn Field(comptime modulo: u256) type {
         /// Calculating mod sqrt
         /// TODO: add precomution?
         pub fn sqrt(self: Self) ?Self {
-            const v = tonelliShanks(self.toInt(), modulo);
+            const v = tonelliShanks(self.toU256(), modulo);
             return if (v[2]) Self.fromInt(u256, @intCast(v[0])) else null;
         }
 
         pub fn mod(self: Self, rhs: Self) Self {
             return Self.fromInt(
                 u256,
-                @mod(self.toInt(), rhs.toInt()),
+                @mod(self.toU256(), rhs.toU256()),
             );
         }
 
@@ -418,9 +409,9 @@ pub fn Field(comptime modulo: u256) type {
             rhs: Self,
             modulus: Self,
         ) Self {
-            const s: u512 = @intCast(self.toInt());
-            const o: u512 = @intCast(rhs.toInt());
-            const m: u512 = @intCast(modulus.toInt());
+            const s: u512 = @intCast(self.toU256());
+            const o: u512 = @intCast(rhs.toU256());
+            const m: u512 = @intCast(modulus.toU256());
 
             return Self.fromInt(u256, @intCast((s * o) % m));
         }
@@ -609,14 +600,14 @@ pub fn Field(comptime modulo: u256) type {
         }
 
         pub fn modInverse(operand: Self, modulus: Self) !Self {
-            const ext = extendedGCD(@bitCast(operand.toInt()), @bitCast(modulus.toInt()));
+            const ext = extendedGCD(@bitCast(operand.toU256()), @bitCast(modulus.toU256()));
 
             if (ext.gcd != 1) {
                 @panic("GCD must be one");
             }
 
             const result = if (ext.x < 0)
-                ext.x + @as(i256, @bitCast(modulus.toInt()))
+                ext.x + @as(i256, @bitCast(modulus.toU256()))
             else
                 ext.x;
 
@@ -744,7 +735,7 @@ pub fn Field(comptime modulo: u256) type {
 
         /// Bitand operation
         pub fn bitAnd(self: Self, rhs: Self) Self {
-            return Self.fromInt(u256, self.toInt() & rhs.toInt());
+            return Self.fromInt(u256, self.toU256() & rhs.toU256());
         }
 
         /// Batch inversion of multiple field elements.
@@ -1013,6 +1004,13 @@ pub fn Field(comptime modulo: u256) type {
         /// Check if two field elements are equal.
         ///
         /// Determines whether the current field element is equal to another field element.
+        ///
+        /// Parameters:
+        ///   - self: The first field element to compare.
+        ///   - rhs: The second field element to compare.
+        ///
+        /// Returns:
+        ///   - true if the field elements are equal, false otherwise.
         pub fn eql(self: Self, rhs: Self) bool {
             return std.mem.eql(u64, &self.fe.limbs, &rhs.fe.limbs);
         }
@@ -1020,7 +1018,13 @@ pub fn Field(comptime modulo: u256) type {
         /// Convert the field element to a u256 integer.
         ///
         /// Converts the field element to a u256 integer.
-        pub fn toInt(self: Self) u256 {
+        ///
+        /// Parameters:
+        ///   - self: The field element to convert.
+        ///
+        /// Returns:
+        ///   - A u256 integer representing the field element.
+        pub fn toU256(self: Self) u256 {
             return std.mem.readInt(
                 u256,
                 &self.fromMontgomery().toBytesLe(),
@@ -1031,10 +1035,18 @@ pub fn Field(comptime modulo: u256) type {
         /// Try to convert the field element to a u64 if its value is small enough.
         ///
         /// Attempts to convert the field element to a u64 if its value is within the representable range.
-        pub fn toU64(self: Self) !u64 {
-            const asU256 = self.toInt();
-            // Check if the value is small enough to fit into a u64
-            if (asU256 > std.math.maxInt(u64)) return error.ValueTooLarge;
+        ///
+        /// Parameters:
+        ///   - self: The field element to convert.
+        ///   - T: The target type for conversion (must be u64 or smaller).
+        ///
+        /// Returns:
+        ///   - A u64 representation of the field element if conversion succeeds.
+        ///   - Error(ValueTooLarge) if the value exceeds the representable range of the target type.
+        pub fn toInt(self: Self, comptime T: type) !T {
+            const asU256 = self.toU256();
+            // Check if the value is small enough to fit into a type T integer
+            if (asU256 > std.math.maxInt(T)) return error.ValueTooLarge;
 
             // Otherwise, it's safe to cast
             return @intCast(asU256);
@@ -1065,7 +1077,7 @@ pub fn Field(comptime modulo: u256) type {
             const ls = a.pow(comptime QMinOneDiv2);
 
             // Check if a^(p-1)/2 is equivalent to -1 modulo p
-            if (ls.toInt() == comptime Modulo - 1) return -1;
+            if (ls.toU256() == comptime Modulo - 1) return -1;
 
             // Check if a^(p-1)/2 is equivalent to 0 modulo p
             if (ls.isZero()) return 0;
