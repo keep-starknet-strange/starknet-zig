@@ -1,9 +1,4 @@
 const std = @import("std");
-const builtin = @import("builtin");
-const ArrayList = std.ArrayList;
-
-const tonelliShanks = @import("./helper.zig").tonelliShanks;
-const extendedGCD = @import("./helper.zig").extendedGCD;
 const arithmetic = @import("./arithmetic.zig");
 const bigInt = @import("./biginteger.zig").bigInt;
 
@@ -429,7 +424,7 @@ pub fn Field(comptime modulo: u256) type {
         /// Calculating mod sqrt
         /// TODO: add precomution?
         pub fn sqrt(self: Self) ?Self {
-            const v = tonelliShanks(self.toU256(), modulo);
+            const v = arithmetic.tonelliShanks(self.toU256(), modulo);
             return if (v[2]) Self.fromInt(u256, @intCast(v[0])) else null;
         }
 
@@ -638,7 +633,7 @@ pub fn Field(comptime modulo: u256) type {
         }
 
         pub fn modInverse(operand: Self, modulus: Self) !Self {
-            const ext = extendedGCD(@bitCast(operand.toU256()), @bitCast(modulus.toU256()));
+            const ext = arithmetic.extendedGCD(@bitCast(operand.toU256()), @bitCast(modulus.toU256()));
 
             if (ext.gcd != 1) {
                 @panic("GCD must be one");
