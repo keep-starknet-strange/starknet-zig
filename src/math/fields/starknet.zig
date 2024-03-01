@@ -10,7 +10,7 @@ const expectEqualSlices = std.testing.expectEqualSlices;
 
 // Base field for the Stark curve.
 // The prime is 0x800000000000011000000000000000000000000000000000000000000000001.
-pub const Felt252 = fields.Field(STARKNET_PRIME);
+pub const Felt252 = fields.Field(4, STARKNET_PRIME);
 
 test "Felt252: fromU8 should return a field element from a u8" {
     try expectEqual(

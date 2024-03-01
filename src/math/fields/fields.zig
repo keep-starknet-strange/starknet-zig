@@ -12,11 +12,12 @@ pub const FieldError = error{
 /// It provides methods for arithmetic operations on field elements within the finite field.
 ///
 /// # Parameters
+/// - `n_limbs`: The number of limbs used to represent a field element.
 /// - `modulo`: The modulus of the finite field.
 ///
 /// # Returns
 /// A finite field struct with the specified modulus.
-pub fn Field(comptime modulo: u256) type {
+pub fn Field(comptime n_limbs: usize, comptime modulo: u256) type {
     return struct {
         const Self = @This();
 
@@ -28,12 +29,12 @@ pub fn Field(comptime modulo: u256) type {
         /// Represents the value one less than the modulus.
         ///
         /// This value is calculated as the value of the modulus minus one and is used for certain arithmetic operations.
-        pub const MaxField: bigInt(Limbs) = bigInt(Limbs).fromInt(u256, modulo - 1);
+        pub const MaxField: bigInt(n_limbs) = bigInt(n_limbs).fromInt(u256, modulo - 1);
 
         /// Represents the modulus in non-Montgomery format.
         ///
         /// This value is the modulus of the finite field represented in a non-Montgomery format.
-        pub const Modulus: bigInt(Limbs) = bigInt(Limbs).fromInt(u256, modulo);
+        pub const Modulus: bigInt(n_limbs) = bigInt(n_limbs).fromInt(u256, modulo);
 
         /// Represents the number of bytes required to store a field element.
         ///
@@ -50,11 +51,6 @@ pub fn Field(comptime modulo: u256) type {
         /// This value indicates the number of bits in each limb used to represent a field element, typically 64 for u64.
         pub const Bits: usize = @bitSizeOf(u64);
 
-        /// Represents the number of limbs used to represent a field element.
-        ///
-        /// This value indicates the number of limbs used to represent a single field element.
-        pub const Limbs: usize = 4;
-
         /// Represents the value of R^2 modulo the modulus.
         ///
         /// This value is precomputed and represents the square of R modulo the modulus. It is used for Montgomery operations.
@@ -62,12 +58,12 @@ pub fn Field(comptime modulo: u256) type {
         /// Explanation:
         /// Let `M` be the power of 2^64 nearest to `Self::MODULUS_BITS`.
         /// Then `R = M % Self::MODULUS`.
-        pub const R2: bigInt(Limbs) = computeR2Montgomery();
+        pub const R2: bigInt(n_limbs) = computeR2Montgomery();
 
         /// Represents a field element in the finite field.
         ///
         /// This field element is a member of the finite field and is represented by a big integer with a specified number of limbs.
-        fe: bigInt(Limbs) = bigInt(Limbs){},
+        fe: bigInt(n_limbs) = bigInt(n_limbs){},
 
         /// Creates a `Field` element from an integer value.
         ///
@@ -90,11 +86,11 @@ pub fn Field(comptime modulo: u256) type {
             // Switch based on the size of the integer value
             return switch (comptime @typeInfo(T).Int.bits) {
                 // For integers up to 63 bits, directly initialize the field element
-                0...63 => Self.toMontgomery(bigInt(Limbs).init(.{ @intCast(num), 0, 0, 0 })),
+                0...63 => Self.toMontgomery(bigInt(n_limbs).init(.{ @intCast(num), 0, 0, 0 })),
                 // For 64-bit integers, initialize the field element directly
-                Bits => Self.toMontgomery(bigInt(Limbs).init(.{ num, 0, 0, 0 })),
+                Bits => Self.toMontgomery(bigInt(n_limbs).init(.{ num, 0, 0, 0 })),
                 // For integers from 65 to 128 bits, perform truncation and division
-                65...128 => Self.toMontgomery(bigInt(Limbs).init(
+                65...128 => Self.toMontgomery(bigInt(n_limbs).init(
                     .{
                         @truncate(@mod(num, @as(u128, @intCast(std.math.maxInt(u64))) + 1)),
                         @truncate(@divTrunc(num, @as(u128, @intCast(std.math.maxInt(u64))) + 1)),
@@ -106,7 +102,7 @@ pub fn Field(comptime modulo: u256) type {
                 else => blk: {
                     var lbe = [_]u8{0} ** BytesSize;
                     std.mem.writeInt(T, &lbe, num % modulo, .little);
-                    break :blk Self.toMontgomery(bigInt(Limbs).fromBytesLe(lbe));
+                    break :blk Self.toMontgomery(bigInt(n_limbs).fromBytesLe(lbe));
                 },
             };
         }
@@ -160,7 +156,7 @@ pub fn Field(comptime modulo: u256) type {
         ///
         /// Returns:
         ///     A big integer representing R^2 in the Montgomery domain.
-        pub fn computeR2Montgomery() bigInt(Limbs) {
+        pub fn computeR2Montgomery() bigInt(n_limbs) {
             comptime {
                 @setEvalBranchQuota(50000);
 
@@ -168,17 +164,17 @@ pub fn Field(comptime modulo: u256) type {
                 var l: u32 = 0;
 
                 // Define `c` as the largest power of 2 smaller than `modulus`
-                while (l < Limbs * Bits) {
+                while (l < n_limbs * Bits) {
                     // Check if modulus shifted right by `l` bits is not equal to zero
                     if (Modulus.shr(l).ne(.{})) break;
                     l += 1;
                 }
-                var c = bigInt(Limbs).one().shl(l);
+                var c = bigInt(n_limbs).one().shl(l);
 
                 // Double `c` and reduce modulo `modulus` until getting
                 // `2^{2 * number_limbs * word_size}` mod `modulus`
                 var i: usize = 1;
-                while (i <= 2 * Limbs * Bits - l) {
+                while (i <= 2 * n_limbs * Bits - l) {
                     // Double `c`
                     const double_c = c.addWithCarry(&c);
 
@@ -207,7 +203,7 @@ pub fn Field(comptime modulo: u256) type {
         ///
         /// # Returns:
         /// A new `Field` element in Montgomery form representing the input value.
-        pub fn toMontgomery(value: bigInt(Limbs)) Self {
+        pub fn toMontgomery(value: bigInt(n_limbs)) Self {
             // Initialize a field element with the given value
             var r: Self = .{ .fe = value };
 
@@ -229,12 +225,12 @@ pub fn Field(comptime modulo: u256) type {
         ///
         /// # Returns:
         /// A `bigInt` value representing the field element in non-Montgomery form.
-        pub fn fromMontgomery(self: Self) bigInt(Limbs) {
+        pub fn fromMontgomery(self: Self) bigInt(n_limbs) {
             // Initialize an array to store the limbs of the resulting value
             var r = self.fe.limbs;
 
             // Iterate over the limbs of the field element
-            inline for (0..Limbs) |i| {
+            inline for (0..n_limbs) |i| {
                 // Compute the Montgomery factor k
                 const k: u64 = r[i] *% comptime Inv;
                 var carry: u64 = 0;
@@ -243,11 +239,11 @@ pub fn Field(comptime modulo: u256) type {
                 _ = arithmetic.macWithCarry(r[i], k, Modulus.limbs[0], &carry);
 
                 // Iterate over the remaining limbs and perform multiplication with carry
-                inline for (1..Limbs) |j|
-                    r[(i + j) % Limbs] = arithmetic.macWithCarry(r[(i + j) % Limbs], k, Modulus.limbs[j], &carry);
+                inline for (1..n_limbs) |j|
+                    r[(i + j) % n_limbs] = arithmetic.macWithCarry(r[(i + j) % n_limbs], k, Modulus.limbs[j], &carry);
 
                 // Store the final carry
-                r[i % Limbs] = carry;
+                r[i % n_limbs] = carry;
             }
 
             // Return the resulting `bigInt` value
@@ -273,7 +269,7 @@ pub fn Field(comptime modulo: u256) type {
         /// Returns a field element with a value of one.
         pub inline fn one() Self {
             comptime {
-                return toMontgomery(bigInt(Limbs).fromInt(u8, 1));
+                return toMontgomery(bigInt(n_limbs).fromInt(u8, 1));
             }
         }
 
@@ -282,7 +278,7 @@ pub fn Field(comptime modulo: u256) type {
         /// Returns a field element with a value of two.
         pub inline fn two() Self {
             comptime {
-                return toMontgomery(bigInt(Limbs).fromInt(u8, 2));
+                return toMontgomery(bigInt(n_limbs).fromInt(u8, 2));
             }
         }
 
@@ -291,7 +287,7 @@ pub fn Field(comptime modulo: u256) type {
         /// Returns a field element with a value of three.
         pub inline fn three() Self {
             comptime {
-                return toMontgomery(bigInt(Limbs).fromInt(u8, 3));
+                return toMontgomery(bigInt(n_limbs).fromInt(u8, 3));
             }
         }
 
@@ -306,7 +302,7 @@ pub fn Field(comptime modulo: u256) type {
         /// # Returns:
         /// A field element in Montgomery representation.
         pub fn fromBytesLe(bytes: [BytesSize]u8) Self {
-            return Self.toMontgomery(bigInt(Limbs).fromBytesLe(bytes));
+            return Self.toMontgomery(bigInt(n_limbs).fromBytesLe(bytes));
         }
 
         /// Converts a byte array into a field element in Montgomery representation.
@@ -320,7 +316,7 @@ pub fn Field(comptime modulo: u256) type {
         /// # Returns:
         /// A field element in Montgomery representation.
         pub fn fromBytesBe(bytes: [BytesSize]u8) Self {
-            return Self.toMontgomery(bigInt(Limbs).fromBytesBe(bytes));
+            return Self.toMontgomery(bigInt(n_limbs).fromBytesBe(bytes));
         }
 
         /// Converts the field element to a little-endian bits array.
@@ -455,10 +451,10 @@ pub fn Field(comptime modulo: u256) type {
         pub fn canUseNoCarryMulOptimization() bool {
             comptime {
                 // Check if all remaining bits are one
-                var all_remaining_bits_are_one = Modulus.limbs[Limbs - 1] == std.math.maxInt(u64) >> 1;
-                for (1..Limbs) |i| {
+                var all_remaining_bits_are_one = Modulus.limbs[n_limbs - 1] == std.math.maxInt(u64) >> 1;
+                for (1..n_limbs) |i| {
                     all_remaining_bits_are_one = all_remaining_bits_are_one and
-                        (Modulus.limbs[Limbs - i - 1] == std.math.maxInt(u64));
+                        (Modulus.limbs[n_limbs - i - 1] == std.math.maxInt(u64));
                 }
 
                 // Return true if both conditions are met
@@ -482,7 +478,7 @@ pub fn Field(comptime modulo: u256) type {
         pub fn modulusHasSpareBit() bool {
             comptime {
                 // Check if the highest bit of the modulus is zero
-                return Modulus.limbs[Limbs - 1] >> 63 == 0;
+                return Modulus.limbs[n_limbs - 1] >> 63 == 0;
             }
         }
 
@@ -531,10 +527,10 @@ pub fn Field(comptime modulo: u256) type {
             // TODO: add CIOS implementation in case no carry mul optimization cannot be used
             if (comptime canUseNoCarryMulOptimization()) {
                 // Initialize the result array
-                var r = [_]u64{0} ** Limbs;
+                var r = [_]u64{0} ** n_limbs;
 
                 // Iterate over the digits of the right-hand side operand
-                inline for (0..Limbs) |i| {
+                inline for (0..n_limbs) |i| {
                     // Perform the first multiplication and accumulation
                     var carry1: u64 = 0;
                     r[0] = arithmetic.mac(r[0], self.fe.limbs[0], rhs.fe.limbs[i], &carry1);
@@ -545,13 +541,13 @@ pub fn Field(comptime modulo: u256) type {
                     arithmetic.macDiscard(r[0], k, comptime Self.Modulus.limbs[0], &carry2);
 
                     // Iterate over the remaining digits and perform the multiplications and accumulations
-                    inline for (1..Limbs) |j| {
+                    inline for (1..n_limbs) |j| {
                         r[j] = arithmetic.macWithCarry(r[j], self.fe.limbs[j], rhs.fe.limbs[i], &carry1);
                         r[j - 1] = arithmetic.macWithCarry(r[j], k, Self.Modulus.limbs[j], &carry2);
                     }
 
                     // Add the final carries
-                    r[Limbs - 1] = carry1 + carry2;
+                    r[n_limbs - 1] = carry1 + carry2;
                 }
 
                 // Store the result back into the original object
@@ -676,15 +672,15 @@ pub fn Field(comptime modulo: u256) type {
                 const S = @This();
 
                 /// A tuple to store intermediate multiplication results.
-                buf: std.meta.Tuple(&.{ [Limbs]u64, [Limbs]u64 }) =
-                    .{ [_]u64{0} ** Limbs, [_]u64{0} ** Limbs },
+                buf: std.meta.Tuple(&.{ [n_limbs]u64, [n_limbs]u64 }) =
+                    .{ [_]u64{0} ** n_limbs, [_]u64{0} ** n_limbs },
 
                 /// Retrieves a pointer to the buffer element at the specified index.
                 fn getBuf(s: *S, index: usize) *u64 {
-                    return if (index < Limbs)
+                    return if (index < n_limbs)
                         &s.buf[0][index]
                     else
-                        &s.buf[1][index - Limbs];
+                        &s.buf[1][index - n_limbs];
                 }
             };
 
@@ -692,8 +688,8 @@ pub fn Field(comptime modulo: u256) type {
             var carry: u64 = 0;
 
             // Perform multiplication
-            inline for (0..Limbs - 1) |i| {
-                inline for (i + 1..Limbs) |j| {
+            inline for (0..n_limbs - 1) |i| {
+                inline for (i + 1..n_limbs) |j| {
                     r.getBuf(i + j).* = arithmetic.macWithCarry(r.getBuf(i + j).*, self.fe.limbs[i], self.fe.limbs[j], &carry);
                 }
                 r.buf[1][i] = carry;
@@ -701,16 +697,16 @@ pub fn Field(comptime modulo: u256) type {
             }
 
             // Adjust carry for the last limb
-            r.buf[1][Limbs - 1] = r.buf[1][Limbs - 2] >> 63;
+            r.buf[1][n_limbs - 1] = r.buf[1][n_limbs - 2] >> 63;
 
             // Propagate carries
-            inline for (2..2 * Limbs - 1) |i|
-                r.getBuf(2 * Limbs - i).* = (r.getBuf(2 * Limbs - i).* << 1) |
-                    (r.getBuf(2 * Limbs - (i + 1)).* >> 63);
+            inline for (2..2 * n_limbs - 1) |i|
+                r.getBuf(2 * n_limbs - i).* = (r.getBuf(2 * n_limbs - i).* << 1) |
+                    (r.getBuf(2 * n_limbs - (i + 1)).* >> 63);
             r.buf[0][1] <<= 1;
 
             // Perform squaring
-            inline for (0..Limbs) |i| {
+            inline for (0..n_limbs) |i| {
                 r.getBuf(2 * i).* = arithmetic.macWithCarry(r.getBuf(2 * i).*, self.fe.limbs[i], self.fe.limbs[i], &carry);
                 carry = arithmetic.adc(u64, r.getBuf(2 * i + 1), 0, carry);
             }
@@ -719,12 +715,12 @@ pub fn Field(comptime modulo: u256) type {
             var carry2: u64 = 0;
 
             // Reduce and update buffer
-            inline for (0..Limbs) |i| {
+            inline for (0..n_limbs) |i| {
                 const k: u64 = r.buf[0][i] *% comptime Inv;
                 carry = 0;
                 arithmetic.macDiscard(r.buf[0][i], k, Modulus.limbs[0], &carry);
 
-                inline for (1..Limbs) |j|
+                inline for (1..n_limbs) |j|
                     r.getBuf(j + i).* = arithmetic.macWithCarry(r.getBuf(j + i).*, k, Modulus.limbs[j], &carry);
 
                 carry2 = arithmetic.adc(u64, &r.buf[1][i], carry, carry2);
@@ -960,7 +956,7 @@ pub fn Field(comptime modulo: u256) type {
             if (self.isZero()) return null;
 
             // Constant representing the value 1 in the field
-            const o = comptime bigInt(Limbs).one();
+            const o = comptime bigInt(n_limbs).one();
 
             var u = self.fe;
             var v = Modulus;
@@ -980,7 +976,7 @@ pub fn Field(comptime modulo: u256) type {
                         b.fe.div2Assign();
                         // Handle overflow if necessary
                         if (comptime !Self.modulusHasSpareBit() and carry) {
-                            b.fe.limbs[Limbs - 1] |= 1 << 63;
+                            b.fe.limbs[n_limbs - 1] |= 1 << 63;
                         }
                     }
                 }
@@ -995,7 +991,7 @@ pub fn Field(comptime modulo: u256) type {
                         c.fe.div2Assign();
                         // Handle overflow if necessary
                         if (comptime !Self.modulusHasSpareBit() and carry) {
-                            c.fe.limbs[Limbs - 1] |= 1 << 63;
+                            c.fe.limbs[n_limbs - 1] |= 1 << 63;
                         }
                     }
                 }
