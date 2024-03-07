@@ -237,7 +237,7 @@ pub const ProjectivePoint = struct {
         if (self.isIdentity()) return;
 
         // Calculate t = 3*x^2 + a*z^2 with a = 1 (from stark curve).
-        const t = Felt252.three().mul(&self.x.square()).add(self.z.mul(&self.z));
+        const t = Felt252.three().mul(&self.x.square()).add(&self.z.mul(&self.z));
 
         // Calculate u = 2*y*z.
         const u = self.y.double().mul(&self.z);
@@ -512,7 +512,7 @@ pub const ProjectivePoint = struct {
         const v = self.z.mul(&rhs.z);
 
         // t * t * v - u2 * (u0 + u1);
-        const w = t.square().mul(&v).sub(&u_2.mul(&u_0.add(u_1)));
+        const w = t.square().mul(&v).sub(&u_2.mul(&u_0.add(&u_1)));
 
         // Update the coordinates of this point with the result of the addition operation.
         self.* = .{
@@ -571,7 +571,7 @@ pub const ProjectivePoint = struct {
         const u_2 = u.mul(&u);
 
         const v = self.z;
-        const w = t.mul(&t).mul(&v).sub(&u_2.mul(&u_0.add(u_1)));
+        const w = t.mul(&t).mul(&v).sub(&u_2.mul(&u_0.add(&u_1)));
         const u_3 = u.mul(&u_2);
 
         self.* = .{

@@ -311,23 +311,23 @@ test "Felt252 toU64" {
 test "Felt252 arithmetic operations" {
     const a = Felt252.one();
     const b = Felt252.two();
-    const c = a.add(b);
+    const c = a.add(&b);
     try expect(c.eql(Felt252.three()));
 }
 
 test "Felt252 add" {
     try expectEqual(
         @as(u256, 0xf),
-        Felt252.fromInt(u8, 10).add(Felt252.fromInt(u8, 5)).toU256(),
+        Felt252.fromInt(u8, 10).add(&Felt252.fromInt(u8, 5)).toU256(),
     );
-    try expect(Felt252.one().add(Felt252.zero()).isOne());
-    try expect(Felt252.zero().add(Felt252.zero()).isZero());
+    try expect(Felt252.one().add(&Felt252.zero()).isOne());
+    try expect(Felt252.zero().add(&Felt252.zero()).isZero());
     try expectEqual(
         @as(
             u256,
             0x7fffffffffffbd0ffffffffffffffffffffffffffffffffffffffffffffffbf,
         ),
-        Felt252.fromInt(u256, std.math.maxInt(u256)).add(Felt252.fromInt(u256, std.math.maxInt(u256))).toU256(),
+        Felt252.fromInt(u256, std.math.maxInt(u256)).add(&Felt252.fromInt(u256, std.math.maxInt(u256))).toU256(),
     );
 }
 
@@ -595,33 +595,33 @@ test "Felt252: arithmetic addition operations" {
         const zero = Felt252.zero();
 
         // Associativity
-        try expect(a.add(b).add(c).eql(a.add(c.add(b))));
+        try expect(a.add(&b).add(&c).eql(a.add(&c.add(&b))));
 
         // Identify
-        try expect(a.eql(zero.add(a)));
-        try expect(b.eql(zero.add(b)));
-        try expect(c.eql(zero.add(c)));
-        try expect(a.eql(a.add(zero)));
-        try expect(b.eql(b.add(zero)));
-        try expect(c.eql(c.add(zero)));
+        try expect(a.eql(zero.add(&a)));
+        try expect(b.eql(zero.add(&b)));
+        try expect(c.eql(zero.add(&c)));
+        try expect(a.eql(a.add(&zero)));
+        try expect(b.eql(b.add(&zero)));
+        try expect(c.eql(c.add(&zero)));
 
         // Negation
-        try expect(zero.eql(a.neg().add(a)));
-        try expect(zero.eql(b.neg().add(b)));
-        try expect(zero.eql(c.neg().add(c)));
-        try expect(zero.eql(zero.neg().add(zero)));
+        try expect(zero.eql(a.neg().add(&a)));
+        try expect(zero.eql(b.neg().add(&b)));
+        try expect(zero.eql(c.neg().add(&c)));
+        try expect(zero.eql(zero.neg().add(&zero)));
 
         // Commutativity
-        try expect(a.add(b).eql(b.add(a)));
+        try expect(a.add(&b).eql(b.add(&a)));
 
         // Associativity and commutativity simultaneously
-        try expect(a.add(b).add(c).eql(a.add(c).add(b)));
-        try expect(a.add(c).add(b).eql(b.add(c).add(a)));
+        try expect(a.add(&b).add(&c).eql(a.add(&c).add(&b)));
+        try expect(a.add(&c).add(&b).eql(b.add(&c).add(&a)));
 
         // Doubling
-        try expect(a.add(a).eql(a.double()));
-        try expect(b.add(b).eql(b.double()));
-        try expect(c.add(c).eql(c.double()));
+        try expect(a.add(&a).eql(a.double()));
+        try expect(b.add(&b).eql(b.double()));
+        try expect(c.add(&c).eql(c.double()));
         try expect(zero.eql(zero.double()));
         try expect(zero.eql(zero.neg().double()));
     }
@@ -640,7 +640,7 @@ test "Felt252: arithmetic subtraction operations" {
         const zero = Felt252.zero();
 
         // Associativity
-        try expect(a.sub(&b).add(b.sub(&a)).isZero());
+        try expect(a.sub(&b).add(&b.sub(&a)).isZero());
 
         // Identity
         try expect(zero.sub(&a).eql(a.neg()));
@@ -699,17 +699,17 @@ test "Felt252: arithmetic multiplication operations" {
         try expect(c.mul(&c).eql(c.square()));
 
         // Distributivity
-        try expect(a.mul(&b.add(c)).eql(a.mul(&b).add(a.mul(&c))));
-        try expect(b.mul(&a.add(c)).eql(b.mul(&a).add(b.mul(&c))));
-        try expect(c.mul(&a.add(b)).eql(c.mul(&a).add(c.mul(&b))));
-        try expect(a.add(b).square().eql(
-            a.square().add(b.square()).add(a.mul(&b).double()),
+        try expect(a.mul(&b.add(&c)).eql(a.mul(&b).add(&a.mul(&c))));
+        try expect(b.mul(&a.add(&c)).eql(b.mul(&a).add(&b.mul(&c))));
+        try expect(c.mul(&a.add(&b)).eql(c.mul(&a).add(&c.mul(&b))));
+        try expect(a.add(&b).square().eql(
+            a.square().add(&b.square()).add(&a.mul(&b).double()),
         ));
-        try expect(b.add(c).square().eql(
-            b.square().add(c.square()).add(b.mul(&c).double()),
+        try expect(b.add(&c).square().eql(
+            b.square().add(&c.square()).add(&b.mul(&c).double()),
         ));
-        try expect(c.add(a).square().eql(
-            c.square().add(a.square()).add(c.mul(&a).double()),
+        try expect(c.add(&a).square().eql(
+            c.square().add(&a.square()).add(&c.mul(&a).double()),
         ));
 
         // Power

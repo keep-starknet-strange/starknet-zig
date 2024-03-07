@@ -28,40 +28,8 @@ pub fn main() !void {
     , .{});
     const a = Felt252.fromInt(u256, 0x800000000000011000000000000000000000000000000000000000000000000);
     const b = Felt252.fromInt(u256, 0x4);
-    const c = a.add(b);
+    const c = a.add(&b);
     std.debug.print("\nResult: {}\n", .{c.toU256()});
 }
 
-// *****************************************************************************
-// *                     VM TESTS                                              *
-// *****************************************************************************
-
-// *****************************************************************************
-// *                     MATH TESTS                                            *
-// *****************************************************************************
-
 pub const TEST_ITERATIONS = 1;
-
-test "fields" {
-    _ = @import("math/fields/fields.zig");
-    _ = @import("math/fields/starknet.zig");
-    _ = @import("math/fields/arithmetic.zig");
-    _ = @import("math/fields/biginteger.zig");
-    _ = @import("math/fields/const_choice.zig");
-}
-
-test "curve" {
-    _ = @import("math/curve/short_weierstrass/affine.zig");
-    _ = @import("math/curve/short_weierstrass/projective.zig");
-    _ = @import("math/curve/short_weierstrass/projective_jacobian.zig");
-    _ = @import("math/curve/curve_params.zig");
-}
-
-// *****************************************************************************
-// *                     UTIL TESTS                                            *
-// *****************************************************************************
-
-test "util" {
-    _ = @import("utils/log.zig");
-    _ = @import("utils/time.zig");
-}

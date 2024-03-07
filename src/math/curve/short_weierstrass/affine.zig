@@ -207,8 +207,8 @@ pub const AffinePoint = struct {
 
         // Calculate the right-hand side of the elliptic curve equation: x^3 + ax + b.
         const rhs = self.x.square().mul(&self.x).add(
-            CurveParams.ALPHA.mul(&self.x),
-        ).add(CurveParams.BETA);
+            &CurveParams.ALPHA.mul(&self.x),
+        ).add(&CurveParams.BETA);
 
         // Check if the calculated right-hand side is equal to the square of the y-coordinate.
         return rhs.eql(self.y.square());
@@ -395,7 +395,7 @@ pub const AffinePoint = struct {
         const lambda = Felt252.three().mul(
             &self.x.mul(&self.x),
         ).add(
-            Felt252.one(),
+            &Felt252.one(),
         ).mul(
             &Felt252.two().mul(&self.y).inverse().?,
         );
@@ -436,7 +436,7 @@ pub const AffinePoint = struct {
     pub fn fromX(x: Felt252) EcPointError!Self {
         return .{
             .x = x,
-            .y = x.mul(&x).mul(&x).add(CurveParams.ALPHA.mul(&x)).add(CurveParams.BETA).sqrt() orelse
+            .y = x.mul(&x).mul(&x).add(&CurveParams.ALPHA.mul(&x)).add(&CurveParams.BETA).sqrt() orelse
                 return EcPointError.SqrtNotExist,
             .infinity = false,
         };

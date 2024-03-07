@@ -6,6 +6,16 @@ pub const FieldError = error{
     DivisionByZero,
 };
 
+pub const U256Result = struct {
+    value: u256 = undefined,
+
+    pub inline fn init(allocator: std.mem.Allocator) !*U256Result {
+        var res = try allocator.create(U256Result);
+        res.* = .{};
+        return &res;
+    }
+};
+
 /// Represents a finite field with a specified modulus.
 ///
 /// This finite field struct encapsulates operations and properties related to arithmetic operations modulo a given modulus.
@@ -526,7 +536,7 @@ pub fn Field(comptime n_limbs: usize, comptime modulo: u256) type {
         /// zero bit in the rest of the modulus.
         ///
         /// For another reference implementation, see [arkworks-rs/algebra](https://github.com/arkworks-rs/algebra/blob/3a6156785e12eeb9083a7a402ac037de01f6c069/ff/src/fields/models/fp/montgomery_backend.rs#L151)
-        pub fn mulAssign(self: *Self, rhs: *const Self) void {
+        pub inline fn mulAssign(self: *Self, rhs: *const Self) void {
             // TODO: add CIOS implementation in case no carry mul optimization cannot be used
             if (comptime canUseNoCarryMulOptimization()) {
                 // Initialize the result array
@@ -913,11 +923,11 @@ pub fn Field(comptime n_limbs: usize, comptime modulo: u256) type {
         ///
         /// Returns:
         ///   - The result of the addition operation as a new field element.
-        pub fn add(self: *const Self, rhs: Self) Self {
+        pub fn add(self: *const Self, rhs: *const Self) Self {
             // Dereference the pointer to obtain the actual field element.
             var a = self.*;
             // Perform the addition operation by calling the `addAssign` method.
-            a.addAssign(&rhs);
+            a.addAssign(rhs);
             // Return the result of the addition operation.
             return a;
         }
