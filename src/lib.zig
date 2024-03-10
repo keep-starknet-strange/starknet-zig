@@ -17,3 +17,7 @@ pub const bench = struct {
     pub usingnamespace @import("bench/bench.zig");
     pub usingnamespace @import("bench/bench_field.zig");
 };
+
+pub const crypto = struct {
+    pub usingnamespace @import("crypto/ecdsa.zig");
+};

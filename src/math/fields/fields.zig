@@ -51,7 +51,7 @@ pub fn Field(comptime n_limbs: usize, comptime modulo: u256) type {
         /// Represents the value one less than the modulus.
         ///
         /// This value is calculated as the value of the modulus minus one and is used for certain arithmetic operations.
-        pub const MaxField: big_int = big_int.fromInt(u256, modulo - 1);
+        pub const MaxField: Self = .{ .fe = big_int.fromInt(u256, modulo - 1) };
 
         /// Represents the modulus in non-Montgomery format.
         ///

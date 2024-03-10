@@ -1,5 +1,6 @@
 const std = @import("std");
 const arithmetic = @import("./arithmetic.zig");
+const Field = @import("./fields.zig").Field;
 const ConstChoice = @import("./const_choice.zig").ConstChoice;
 const TEST_ITERATIONS = @import("../../main.zig").TEST_ITERATIONS;
 
@@ -1452,6 +1453,38 @@ pub fn bigInt(comptime N: usize) type {
             // Return the computed remainder
             return rm;
         }
+
+        /// Performs the modular multiplication operation of two big integers within the Montgomery field modulo `p`.
+        ///
+        /// This function computes the product of `self` and `rhs` modulo `p` using the Montgomery reduction technique.
+        /// It ensures that the modulus `p` is odd, as even moduli are currently unsupported and will panic.
+        ///
+        /// Parameters:
+        ///   - self: A pointer to the multiplicand big integer.
+        ///   - rhs: A pointer to the multiplier big integer.
+        ///   - p: A pointer to the modulus big integer.
+        ///
+        /// Returns:
+        ///   - The result of the modular multiplication operation (`self * rhs % p`) within the Montgomery field.
+        ///
+        /// Remarks:
+        ///   - This function leverages the Montgomery reduction technique for efficient modular multiplication.
+        ///   - It requires `p` to be an odd modulus; otherwise, it will panic.
+        ///   - Montgomery multiplication is efficient for repeated modular multiplications with the same modulus.
+        pub fn mulMod(self: *const Self, rhs: *const Self, comptime p: *const Self) Self {
+            // Ensure that the modulus is odd
+            if (p.isOdd()) {
+                // Initialize the Montgomery field with modulus `p`
+                const field = Field(N, comptime p.toU256());
+
+                // Perform Montgomery multiplication
+                return field.fromMontgomery(field.fromBytesLe(self.toBytesLe())
+                    .mul(&field.fromBytesLe(rhs.toBytesLe())));
+            }
+            // Panics if the modulus is even (unsupported)
+            // TODO: support for even `p`?
+            @panic("even moduli are currently unsupported");
+        }
     };
 }
 
@@ -1916,4 +1949,28 @@ test "bigInt: fuzzing test for bits operations" {
     try expect(bigInt(4).fromBitsBe(bits_array_max).mul2()[0].eql(zero));
     try expect(bigInt(4).fromBitsBe([_]bool{true} ** (@bitSizeOf(u256))).eql(bigInt(4).max()));
     try expect(bigInt(4).fromBitsBe([_]bool{false} ** (@bitSizeOf(u256))).eql(zero));
+}
+
+test "bigInt: mulMod operations" {
+    // Initialize a pseudo-random number generator (PRNG) with a seed of 0.
+    var prng = std.Random.DefaultPrng.init(0);
+    // Generate a random number using the PRNG.
+    const random = prng.random();
+
+    const p: u256 = 0x61daf9a1ad4fd3345c3816c1d45c7eb10556c81331ad3d612bdd8fb9d8d8dd79;
+    const p_big_int = comptime bigInt(4).fromInt(u256, p);
+
+    // Iterate over the test iterations.
+    for (0..TEST_ITERATIONS) |_| {
+        const a = random.int(u256);
+        const b = random.int(u256);
+
+        const a_big_int = bigInt(4).fromInt(u256, a);
+        const b_big_int = bigInt(4).fromInt(u256, b);
+
+        try expectEqual(
+            @mod(@as(u512, a) * @as(u512, b), p),
+            a_big_int.mulMod(&b_big_int, &p_big_int).toU256(),
+        );
+    }
 }
