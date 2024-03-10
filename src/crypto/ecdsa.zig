@@ -8,66 +8,82 @@ const CurveParams = @import("../math/curve/curve_params.zig");
 const ProjectivePoint = @import("../math/curve/short_weierstrass/projective.zig").ProjectivePoint;
 const AffinePoint = @import("../math/curve/short_weierstrass/affine.zig").AffinePoint;
 
+/// Represents an error that can occur during ECDSA signing.
 pub const SignError = error{
+    /// The message hash is invalid.
     InvalidMessageHash,
+    /// The value of `k` is invalid.
     InvalidK,
 };
 
+/// Represents an error that can occur during ECDSA verification.
 pub const VerifyError = error{
+    /// The public key is invalid.
     InvalidPublicKey,
+    /// The message hash is invalid.
     InvalidMessageHash,
+    /// The value of `r` is invalid.
     InvalidR,
+    /// The value of `s` is invalid.
     InvalidS,
 };
 
+/// Represents an error that can occur during ECDSA signature recovery.
 pub const RecoverError = error{
+    /// The message hash is invalid.
     InvalidMessageHash,
+    /// The value of `r` is invalid.
     InvalidR,
+    /// The value of `s` is invalid.
     InvalidS,
+    /// The value of `v` is invalid.
     InvalidV,
 };
 
+/// Represents an ECDSA signature.
 pub const Signature = struct {
     const Self = @This();
 
+    /// The `r` value of the signature.
     r: Felt252 = .{},
+    /// The `s` value of the signature.
     s: Felt252 = .{},
+    /// The `v` value of the signature, if it's provided.
     v: ?Felt252 = null,
 
+    /// Initializes an ECDSA signature with `r` and `s` values.
     pub fn init(r: Felt252, s: Felt252) Self {
         return .{ .r = r, .s = s };
     }
 
+    /// Initializes an ECDSA signature with extended `r`, `s`, and `v` values.
     pub fn initExtended(r: Felt252, s: Felt252, v: Felt252) Self {
         return .{ .r = r, .s = s, .v = v };
     }
 
     pub fn sign(private_key: *const Felt252, message: *const Felt252, k: *const Felt252) !Self {
-        if (message.gte(&Felt252.MaxField)) return SignError.InvalidMessageHash;
-
+        if (message.gte(&comptime Felt252.MaxField)) return SignError.InvalidMessageHash;
         if (k.isZero()) return SignError.InvalidK;
 
-        const full_r = CurveParams.GENERATOR.mulByScalarProjective(k);
+        const full_r = (comptime CurveParams.GENERATOR).mulByScalarProjective(k);
 
         const r = full_r.x;
 
-        if (r.isZero() or r.gte(&Felt252.MaxField)) return SignError.InvalidK;
-
-        const k_inv = try k.modInverse(CurveParams.EC_ORDER);
+        if (r.isZero() or r.gte(&comptime Felt252.MaxField)) return SignError.InvalidK;
 
         const s = Felt252.fromBytesLe(
             r.fromMontgomery().mulMod(
                 &private_key.fromMontgomery(),
-                &CurveParams.EC_ORDER.fromMontgomery(),
+                &comptime CurveParams.EC_ORDER.fromMontgomery(),
             ).addWithCarry(
                 &message.fromMontgomery(),
             )[0].mulMod(
-                &k_inv.fromMontgomery(),
-                &CurveParams.EC_ORDER.fromMontgomery(),
+                &(try k.modInverse(comptime CurveParams.EC_ORDER)).fromMontgomery(),
+                &comptime CurveParams.EC_ORDER.fromMontgomery(),
             ).toBytesLe(),
         );
 
-        if (s.isZero() or s.gte(&Felt252.MaxField))
+        if (s.isZero() or s.gte(&comptime Felt252.MaxField))
             return SignError.InvalidK;
 
         return .{
@@ -75,7 +91,7 @@ pub const Signature = struct {
             .s = s,
             .v = Felt252.fromBytesLe(
                 full_r.y.fromMontgomery()
-                    .bitAnd(&Felt252.one().fromMontgomery())
+                    .bitAnd(&comptime Felt252.one().fromMontgomery())
                     .toBytesLe(),
             ),
         };
@@ -140,7 +156,30 @@ pub const Signature = struct {
     }
 };
 
+/// Computes the public key corresponding to the given private key using the elliptic curve parameters.
+///
+/// This function calculates the public key corresponding to the provided private key
+/// using the elliptic curve parameters. It performs scalar multiplication of the base generator point
+/// by the private key, following the ECDSA key-pair generation process, and returns the x-coordinate of the resulting point as the public key.
+///
+/// # Key Generation
+///
+/// The ECDSA key-pair consists of:
+/// - Private key (integer): `privKey`
+/// - Public key (EC point): `pubKey = privKey * G`
+///
+/// The private key is generated as a random integer in the range [0...n-1], where `n` is the order of the base generator point `G`.
+/// The public key `pubKey` is a point on the elliptic curve, calculated by the EC point multiplication: `pubKey = privKey * G` (the private key, multiplied by the generator point `G`).
+///
+/// # Arguments
+///
+/// * `private_key` - A pointer to the private key represented as a field element.
+///
+/// # Returns
+///
+/// The x-coordinate of the resulting point after scalar multiplication, representing the public key.
 pub fn getPublicKey(private_key: *const Felt252) Felt252 {
+    // Scalar multiply the base generator point by the private key and return the x-coordinate.
     return CurveParams.GENERATOR.mulByScalarProjective(private_key).x;
 }
 
@@ -320,4 +359,6 @@ test "Signature: test recover with invalid r" {
     const signature = Signature.initExtended(r, s, v);
 
     try expectError(RecoverError.InvalidR, signature.recover(&message_hash));
+
+    std.debug.print("EMPTY_UNCLE_HASH = {any}\n", .{CurveParams.EC_ORDER.toU256()});
 }
