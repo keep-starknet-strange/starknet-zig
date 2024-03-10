@@ -1478,7 +1478,7 @@ pub fn bigInt(comptime N: usize) type {
                 const field = Field(N, comptime p.toU256());
 
                 // Perform Montgomery multiplication
-                return field.fromMontgomery(field.fromBytesLe(self.toBytesLe())
+                return field.toBigInt(field.fromBytesLe(self.toBytesLe())
                     .mul(&field.fromBytesLe(rhs.toBytesLe())));
             }
             // Panics if the modulus is even (unsupported)

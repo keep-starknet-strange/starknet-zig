@@ -238,7 +238,7 @@ pub fn Field(comptime n_limbs: usize, comptime modulo: u256) type {
         ///
         /// # Returns:
         /// A `bigInt` value representing the field element in non-Montgomery form.
-        pub fn fromMontgomery(self: Self) big_int {
+        pub fn toBigInt(self: Self) big_int {
             // Initialize an array to store the limbs of the resulting value
             var r = self.fe.limbs;
 
@@ -339,7 +339,7 @@ pub fn Field(comptime n_limbs: usize, comptime modulo: u256) type {
         /// # Returns:
         /// A little-endian bits array representing the field element.
         pub fn toBitsLe(self: Self) [@bitSizeOf(u256)]bool {
-            return self.fromMontgomery().toBitsLe();
+            return self.toBigInt().toBitsLe();
         }
 
         /// Converts the field element to a big-endian bits array.
@@ -349,7 +349,7 @@ pub fn Field(comptime n_limbs: usize, comptime modulo: u256) type {
         /// # Returns:
         /// A big-endian bits array representing the field element.
         pub fn toBitsBe(self: Self) [@bitSizeOf(u256)]bool {
-            return self.fromMontgomery().toBitsBe();
+            return self.toBigInt().toBitsBe();
         }
 
         /// Converts the field element to a little-endian byte array.
@@ -359,7 +359,7 @@ pub fn Field(comptime n_limbs: usize, comptime modulo: u256) type {
         /// # Returns:
         /// A little-endian byte array representing the field element.
         pub fn toBytesLe(self: Self) [BytesSize]u8 {
-            return self.fromMontgomery().toBytesLe();
+            return self.toBigInt().toBytesLe();
         }
 
         /// Converts the field element to a big-endian byte array.
@@ -369,7 +369,7 @@ pub fn Field(comptime n_limbs: usize, comptime modulo: u256) type {
         /// # Returns:
         /// A big-endian byte array representing the field element.
         pub fn toBytesBe(self: Self) [BytesSize]u8 {
-            return self.fromMontgomery().toBytesBe();
+            return self.toBigInt().toBytesBe();
         }
 
         /// Retrieves the minimum number of bits required to represent the field element.
@@ -380,7 +380,7 @@ pub fn Field(comptime n_limbs: usize, comptime modulo: u256) type {
         /// # Returns:
         /// The minimum number of bits needed to represent the field element.
         pub fn numBitsLe(self: Self) u64 {
-            return self.fromMontgomery().numBitsLe();
+            return self.toBigInt().numBitsLe();
         }
 
         /// Check if the field element is lexicographically largest.
@@ -1137,7 +1137,7 @@ pub fn Field(comptime n_limbs: usize, comptime modulo: u256) type {
         pub fn toU256(self: Self) u256 {
             return std.mem.readInt(
                 u256,
-                &self.fromMontgomery().toBytesLe(),
+                &self.toBigInt().toBytesLe(),
                 .little,
             );
         }
@@ -1205,7 +1205,7 @@ pub fn Field(comptime n_limbs: usize, comptime modulo: u256) type {
         /// # Returns
         /// A `std.math.Order` enum indicating the ordering relationship.
         pub fn cmp(self: *const Self, rhs: *const Self) std.math.Order {
-            return self.fromMontgomery().cmp(&rhs.fromMontgomery());
+            return self.toBigInt().cmp(&rhs.toBigInt());
         }
 
         /// Check if this field element is less than the rhs.

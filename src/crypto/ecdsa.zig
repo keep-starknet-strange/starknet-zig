@@ -100,14 +100,14 @@ pub const Signature = struct {
 
         // Compute s = (k^(-1) * (z + rd_A)) mod n
         const s = Felt252.fromBytesLe(
-            r.fromMontgomery().mulMod(
-                &private_key.fromMontgomery(),
-                &comptime CurveParams.EC_ORDER.fromMontgomery(),
+            r.toBigInt().mulMod(
+                &private_key.toBigInt(),
+                &comptime CurveParams.EC_ORDER.toBigInt(),
             ).addWithCarry(
-                &message.fromMontgomery(),
+                &message.toBigInt(),
             )[0].mulMod(
-                &(try k.modInverse(comptime CurveParams.EC_ORDER)).fromMontgomery(),
-                &comptime CurveParams.EC_ORDER.fromMontgomery(),
+                &(try k.modInverse(comptime CurveParams.EC_ORDER)).toBigInt(),
+                &comptime CurveParams.EC_ORDER.toBigInt(),
             ).toBytesLe(),
         );
 
@@ -116,8 +116,8 @@ pub const Signature = struct {
 
         // Calculate v = (y-coordinate of full_r) mod 2
         const v = Felt252.fromBytesLe(
-            full_r.y.fromMontgomery()
-                .bitAnd(&comptime Felt252.one().fromMontgomery())
+            full_r.y.toBigInt()
+                .bitAnd(&comptime Felt252.one().toBigInt())
                 .toBytesLe(),
         );
 
@@ -188,9 +188,9 @@ pub const Signature = struct {
         // Calculate 'zw * G'
         const zw_g = CurveParams.GENERATOR.mulByScalarProjective(
             &Felt252.fromBytesLe(
-                message.fromMontgomery().mulMod(
-                    &w.fromMontgomery(),
-                    &CurveParams.EC_ORDER.fromMontgomery(),
+                message.toBigInt().mulMod(
+                    &w.toBigInt(),
+                    &CurveParams.EC_ORDER.toBigInt(),
                 ).toBytesLe(),
             ),
         );
@@ -198,9 +198,9 @@ pub const Signature = struct {
         // Calculate 'rw * Q'
         const rw_q = full_public_key.mulByScalarProjective(
             &Felt252.fromBytesLe(
-                self.r.fromMontgomery().mulMod(
-                    &w.fromMontgomery(),
-                    &CurveParams.EC_ORDER.fromMontgomery(),
+                self.r.toBigInt().mulMod(
+                    &w.toBigInt(),
+                    &CurveParams.EC_ORDER.toBigInt(),
                 ).toBytesLe(),
             ),
         );
@@ -251,8 +251,8 @@ pub const Signature = struct {
 
         // Adjust the 'y' coordinate of 'full_r' based on the 'v' value
         if (!Felt252.fromBytesLe(
-            full_r.y.fromMontgomery().bitAnd(
-                &comptime Felt252.one().fromMontgomery(),
+            full_r.y.toBigInt().bitAnd(
+                &comptime Felt252.one().toBigInt(),
             ).toBytesLe(),
         ).eql(self.v.?))
             full_r.y = full_r.y.neg();
