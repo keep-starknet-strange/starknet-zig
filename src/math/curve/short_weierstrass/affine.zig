@@ -604,7 +604,7 @@ pub const AffinePoint = struct {
     /// Remarks:
     ///   - This function converts the affine point to the projective point, performs scalar multiplication,
     ///     and then converts the resulting projective point back to the affine point.
-    pub fn mulByScalarProjective(self: *const Self, rhs: *const Felt252) Self {
+    pub inline fn mulByScalarProjective(self: *const Self, rhs: *const Felt252) Self {
         // Convert the affine point to the projective point,
         // perform scalar multiplication, and then convert back to the affine point.
         return Self.fromProjectivePoint(
