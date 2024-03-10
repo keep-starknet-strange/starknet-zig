@@ -586,6 +586,33 @@ pub const AffinePoint = struct {
         // Convert the scalar value to a bit slice in big-endian format and perform scalar multiplication.
         return try self.mulByBitsBe(rhs.toBitsBe());
     }
+
+    /// Multiplies the affine point by a scalar represented as a field element in the projective space.
+    ///
+    /// This function performs scalar multiplication of the affine point by a scalar represented
+    /// as a field element within the projective space.
+    ///
+    /// # Arguments
+    ///
+    /// * `self` - A pointer to the affine point.
+    /// * `rhs` - A pointer to the scalar value.
+    ///
+    /// # Returns
+    ///
+    /// The resulting affine point after scalar multiplication in the projective space.
+    ///
+    /// Remarks:
+    ///   - This function converts the affine point to the projective point, performs scalar multiplication,
+    ///     and then converts the resulting projective point back to the affine point.
+    pub fn mulByScalarProjective(self: *const Self, rhs: *const Felt252) Self {
+        // Convert the affine point to the projective point,
+        // perform scalar multiplication, and then convert back to the affine point.
+        return Self.fromProjectivePoint(
+            &ProjectivePoint
+                .fromAffinePoint(self)
+                .mulByScalar(rhs),
+        );
+    }
 };
 
 test "AffinePoint: default value should correspond to identity" {

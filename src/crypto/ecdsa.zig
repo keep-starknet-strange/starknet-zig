@@ -47,11 +47,7 @@ pub const Signature = struct {
 
         if (k.isZero()) return SignError.InvalidK;
 
-        const full_r = AffinePoint.fromProjectivePoint(
-            &ProjectivePoint
-                .fromAffinePoint(&CurveParams.GENERATOR)
-                .mulByBitsBe(k.toBitsBe()),
-        );
+        const full_r = CurveParams.GENERATOR.mulByScalarProjective(k);
 
         const r = full_r.x;
 
@@ -96,18 +92,20 @@ pub const Signature = struct {
 
         if (w.isZero() or w.gte(&Felt252.MaxField)) return VerifyError.InvalidS;
 
-        const zw_g = try CurveParams.GENERATOR.mulByBitsBe(
-            Felt252.fromBytesLe(message.fromMontgomery().mulMod(
+        const zw_g = CurveParams.GENERATOR.mulByScalarProjective(
+            &Felt252.fromBytesLe(message.fromMontgomery().mulMod(
                 &w.fromMontgomery(),
                 &CurveParams.EC_ORDER.fromMontgomery(),
-            ).toBytesLe()).toBitsBe(),
+            ).toBytesLe()),
         );
 
-        const rw_q = try full_public_key.mulByBitsBe(
-            self.r.fromMontgomery().mulMod(
-                &w.fromMontgomery(),
-                &CurveParams.EC_ORDER.fromMontgomery(),
-            ).toBitsBe(),
+        const rw_q = full_public_key.mulByScalarProjective(
+            &Felt252.fromBytesLe(
+                self.r.fromMontgomery().mulMod(
+                    &w.fromMontgomery(),
+                    &CurveParams.EC_ORDER.fromMontgomery(),
+                ).toBytesLe(),
+            ),
         );
 
         return (try zw_g.add(&rw_q)).x.eql(self.r) or
@@ -130,36 +128,20 @@ pub const Signature = struct {
         ).eql(self.v.?))
             full_r.y = full_r.y.neg();
 
-        const full_rs = AffinePoint.fromProjectivePoint(
-            &ProjectivePoint
-                .fromAffinePoint(&full_r)
-                .mulByBitsBe(self.s.toBitsBe()),
-        );
+        const full_rs = full_r.mulByScalarProjective(&self.s);
 
-        const zg = AffinePoint.fromProjectivePoint(
-            &ProjectivePoint
-                .fromAffinePoint(&CurveParams.GENERATOR)
-                .mulByBitsBe(message.toBitsBe()),
-        );
+        const zg = CurveParams.GENERATOR.mulByScalarProjective(message);
 
         const r_inv = try self.r.modInverse(CurveParams.EC_ORDER);
 
         const rs_zg = try full_rs.sub(&zg);
 
-        return AffinePoint.fromProjectivePoint(
-            &ProjectivePoint
-                .fromAffinePoint(&rs_zg)
-                .mulByBitsBe(r_inv.toBitsBe()),
-        ).x;
+        return rs_zg.mulByScalarProjective(&r_inv).x;
     }
 };
 
 pub fn getPublicKey(private_key: *const Felt252) Felt252 {
-    return AffinePoint.fromProjectivePoint(
-        &ProjectivePoint
-            .fromAffinePoint(&CurveParams.GENERATOR)
-            .mulByBitsBe(private_key.toBitsBe()),
-    ).x;
+    return CurveParams.GENERATOR.mulByScalarProjective(private_key).x;
 }
 
 // Test cases ported from:
