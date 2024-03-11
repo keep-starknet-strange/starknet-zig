@@ -103,122 +103,72 @@ pub const GENERATOR: AffinePoint = .{
     .infinity = false,
 };
 
-pub const SHIFT_POINT: AffinePoint = .{
-    .x = .{
-        .fe = bigInt(4).init(
-            .{
-                1933903796324928314,
-                7739989395386261137,
-                1641324389046377921,
-                316327189671755572,
-            },
-        ),
-    },
-    .y = .{
-        .fe = bigInt(4).init(
-            .{
-                14252083571674603243,
-                12587053260418384210,
-                4798858472748676776,
-                81375596133053150,
-            },
-        ),
-    },
-    .infinity = false,
-};
-
+/// Constant representing the Pedersen hash point P0.
+/// P0 is derived from the decimal digits of π and is used in the Pedersen hash function.
 pub const PEDERSEN_P0: AffinePoint = .{
-    .x = .{
-        .fe = bigInt(4).init(
-            .{
-                3602345268353203007,
-                13758484295849329960,
-                518715844721862878,
-                241691544791834578,
-            },
-        ),
-    },
-    .y = .{
-        .fe = bigInt(4).init(
-            .{
-                13441546676070136227,
-                13001553326386915570,
-                433857700841878496,
-                368891789801938570,
-            },
-        ),
-    },
+    .x = Felt252.fromInt(
+        u256,
+        0x49ee3eba8c1600700ee1b87eb599f16716b0b1022947733551fde4050ca6804,
+    ),
+    .y = Felt252.fromInt(
+        u256,
+        0x3ca0cfe4b3bc6ddf346d49d06ea0ed34e621062c0e056c1d0405d266e10268a,
+    ),
     .infinity = false,
 };
 
+/// Constant representing the Pedersen hash point P1.
+/// P1 is derived from the decimal digits of π and is used in the Pedersen hash function.
 pub const PEDERSEN_P1: AffinePoint = .{
-    .x = .{
-        .fe = bigInt(4).init(
-            .{
-                16491878934996302286,
-                12382025591154462459,
-                10043949394709899044,
-                253000153565733272,
-            },
-        ),
-    },
-    .y = .{
-        .fe = bigInt(4).init(
-            .{
-                13950428914333633429,
-                2545498000137298346,
-                5191292837124484988,
-                285630633187035523,
-            },
-        ),
-    },
+    .x = Felt252.fromInt(
+        u256,
+        0x234287dcbaffe7f969c748655fca9e58fa8120b6d56eb0c1080d17957ebe47b,
+    ),
+    .y = Felt252.fromInt(
+        u256,
+        0x3b056f100f96fb21e889527d41f4e39940135dd7a6c94cc6ed0268ee89e5615,
+    ),
     .infinity = false,
 };
 
+/// Constant representing the Pedersen hash point P2.
+/// P2 is derived from the decimal digits of π and is used in the Pedersen hash function.
 pub const PEDERSEN_P2: AffinePoint = .{
-    .x = .{
-        .fe = bigInt(4).init(
-            .{
-                1203723169299412240,
-                18195981508842736832,
-                12916675983929588442,
-                338510149841406402,
-            },
-        ),
-    },
-    .y = .{
-        .fe = bigInt(4).init(
-            .{
-                12352616181161700245,
-                11743524503750604092,
-                11088962269971685343,
-                161068411212710156,
-            },
-        ),
-    },
+    .x = Felt252.fromInt(
+        u256,
+        0x4fa56f376c83db33f9dab2656558f3399099ec1de5e3018b7a6932dba8aa378,
+    ),
+    .y = Felt252.fromInt(
+        u256,
+        0x3fa0984c931c9e38113e0c0e47e4401562761f92a7a23b45168f4e80ff5b54d,
+    ),
     .infinity = false,
 };
 
+/// Constant representing the Pedersen hash point P3.
+/// P3 is derived from the decimal digits of π and is used in the Pedersen hash function.
 pub const PEDERSEN_P3: AffinePoint = .{
-    .x = .{
-        .fe = bigInt(4).init(
-            .{
-                1145636535101238356,
-                10664803185694787051,
-                299781701614706065,
-                425493972656615276,
-            },
-        ),
-    },
-    .y = .{
-        .fe = bigInt(4).init(
-            .{
-                8187986478389849302,
-                4428713245976508844,
-                6033691581221864148,
-                345457391846365716,
-            },
-        ),
-    },
+    .x = Felt252.fromInt(
+        u256,
+        0x4ba4cc166be8dec764910f75b45f74b40c690c74709e90f3aa372f0bd2d6997,
+    ),
+    .y = Felt252.fromInt(
+        u256,
+        0x40301cf5c1751f4b971e46c4ede85fcac5c59a5ce5ae7c48151f27b24b219c,
+    ),
+    .infinity = false,
+};
+
+/// Constant representing the Pedersen hash point P4.
+/// P4 is derived from the decimal digits of π and is used in the Pedersen hash function.
+pub const PEDERSEN_P4: AffinePoint = .{
+    .x = Felt252.fromInt(
+        u256,
+        0x54302dcb0e6cc1c6e44cca8f61a63bb2ca65048d53fb325d36ff12c49a58202,
+    ),
+    .y = Felt252.fromInt(
+        u256,
+        0x1b77b3e37d13504b348046268d8ae25ce98ad783c25561a879dcc77e99c2426,
+    ),
     .infinity = false,
 };

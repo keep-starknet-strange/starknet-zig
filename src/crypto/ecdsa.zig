@@ -304,38 +304,84 @@ pub fn getPublicKey(private_key: *const Felt252) Felt252 {
 // Test cases ported from:
 //   https://github.com/starkware-libs/crypto-cpp/blob/95864fbe11d5287e345432dbe1e80dea3c35fc58/src/starkware/crypto/ffi/crypto_lib_test.go
 
-test "getPublicKey: first test" {
-    // Define a private key for testing purposes
-    const private_key = Felt252.fromInt(
-        u256,
-        0x03c1e9550e66958296d11b60f8e8e7a7ad990d07fa65d5f7652c4a6c87d4e3cc,
-    );
+test "getPublicKey: test with precomputed keys" {
+    // Precomputed keys can be found here:
+    // https://github.com/starkware-libs/starkex-for-spot-trading/blob/master/src/starkware/crypto/starkware/crypto/signature/src/config/keys_precomputed.json
+    const private_keys = [_]u256{
+        0x1,
+        0x2,
+        0x3,
+        0x4,
+        0x5,
+        0x6,
+        0x7,
+        0x8,
+        0x9,
+        0x800000000000000000000000000000000000000000000000000000000000000,
+        0x800000000000000000000000000000000000000000000000000000000000001,
+        0x800000000000000000000000000000000000000000000000000000000000002,
+        0x800000000000000000000000000000000000000000000000000000000000003,
+        0x800000000000000000000000000000000000000000000000000000000000004,
+        0x800000000000000000000000000000000000000000000000000000000000005,
+        0x800000000000000000000000000000000000000000000000000000000000006,
+        0x800000000000000000000000000000000000000000000000000000000000007,
+        0x800000000000000000000000000000000000000000000000000000000000008,
+        0x800000000000000000000000000000000000000000000000000000000000009,
+        0x2e9c99d8382fa004dcbbee720aef8a97002de0e991f6a8344e6dc636a71b59e,
+        0x8620458785138df8722214e073a91b8f55076ea78197cf41007692dd27fd90,
+        0x1b920e7dfb49ba5ada673882af5342e7448d3e9335e0ac37feb6280cd7289ce,
+        0x704170dbfd5dc63caef69d2ce6dfc2b2dbb2af6e75851242bbe79fb6e62a118,
+        0x4b58bf4228f39550eca59b5c96a0cb606036cc9495eef9a546f24f01b1b7829,
+        0x2e93226c90fb7a2381a24e940a94b98433e3553dcbf745d3f54d62963c75604,
+        0x4615f94598cd756ad1a551d7e57fd725916adfd0054eb773ceb482eef87d0b2,
+        0x6ade54b7debd7ca1d4e8e932f9545f8fa4024d73be1efcc86df86367fc333f8,
+        0x618e7467dd24c2a3449c4df640439c12cdd0f8ea779afcee6e252b2cf494354,
+        0x7eae185e1f41ec76d214d763f0592f194933622a9dd5f3d52d0209f71619c1a,
+        0x178047D3869489C055D7EA54C014FFB834A069C9595186ABE04EA4D1223A03F,
+    };
 
-    // Define the expected public key corresponding to the private key
-    const expected_key = Felt252.fromInt(
-        u256,
-        0x077a3b314db07c45076d11f62b6f9e748a39790441823307743cf00d6597ea43,
-    );
+    const expected_public_keys = [_]u256{
+        0x1ef15c18599971b7beced415a40f0c7deacfd9b0d1819e03d723d8bc943cfca,
+        0x759ca09377679ecd535a81e83039658bf40959283187c654c5416f439403cf5,
+        0x411494b501a98abd8262b0da1351e17899a0c4ef23dd2f96fec5ba847310b20,
+        0xa7da05a4d664859ccd6e567b935cdfbfe3018c7771cb980892ef38878ae9bc,
+        0x788435d61046d3eec54d77d25bd194525f4fa26ebe6575536bc6f656656b74c,
+        0x1efc3d7c9649900fcbd03f578a8248d095bc4b6a13b3c25f9886ef971ff96fa,
+        0x743829e0a179f8afe223fc8112dfc8d024ab6b235fd42283c4f5970259ce7b7,
+        0x6eeee2b0c71d681692559735e08a2c3ba04e7347c0c18d4d49b83bb89771591,
+        0x216b4f076ff47e03a05032d1c6ee17933d8de8b2b4c43eb5ad5a7e1b25d3849,
+        0x5c79074e7f7b834c12c81a9bb0d46691a5e7517767a849d9d98cb84e2176ed2,
+        0x1c4f24e3bd16db0e2457bc005a9d61965105a535554c6b338871e34cb8e2d3a,
+        0xdfbb89b39288a9ddacf3942b4481b04d4fa2f8ed3c424757981cc6357f27ac,
+        0x41bef28265fd750b102f4f2d1e0231de7f4a33900a214f191a63d4fec4e72f4,
+        0x24de66eb164797d4b414e81ded0cfa1a592ef0a9363ebbcb440d4d03cb18af1,
+        0x5efb18c3bc9b69003746acc85fb6ee0cfbdc6adfb982f089cc63e1e5495daad,
+        0x10dc71f00918a8ebfe4085c834d41dd22b251b9f81eef8b9a4fab77e7e1afe9,
+        0x4267ebfd379b1c8caae73febc5920b0c95bd6f9f3536f47c5ddad1259c332ff,
+        0x6da515118c8e01fd5b2e96b814ee95bad7d60be4d2ba6b47e0d283f579d9671,
+        0x7a5b4797f4e56ed1473876bc2693fbe3f2fef7e050717cbae924ff23d426052,
+        0x1ff6803ae740e7e596504ac5c6afbea472e53679361e214f12be0155b13e25d,
+        0x5967da40b90d7ca1e36dc4024381d7d4b403c6ac1a0ab358b0743984934a805,
+        0x78c7ab46333968fbde3201cf512c1eeb5529360259072c459a158dee4449b57,
+        0x534bd8d6ebe4bb2f6992e2d7c19ef3146247e10c2849f357e44eddd283b2af6,
+        0x1097a8c5a46d94596f1c8e70ca66941f2bb11e3c8d4fd58fdc4589f09965be8,
+        0x369f0e8c8e984f244290267393a004dba435a4df091767ad5063fece7b1884c,
+        0x1ee5b8d612102a2408cde59ce52a6498d2e38fe8789bb26d400dea310684ec9,
+        0x37de3bf52412b2fb9b0030d232ca9dd921cd8f71fd67975cdc62546826e121,
+        0x71c2b578c432f2d305d3808bb645ecc46dd670cb43d4f4a076f75ccbff74fbc,
+        0x2b0160052e70176e5b0ff2a6eff90896ae07b732fc27219e36e077735abd57e,
+        0x1895a6a77ae14e7987b9cb51329a5adfb17bd8e7c638f92d6892d76e51cebcf,
+    };
 
-    // Call the getPublicKey function with the private key and verify the result
-    try expect(getPublicKey(&private_key).eql(expected_key));
-}
-
-test "getPublicKey: second test" {
-    // Define a private key for testing purposes
-    const private_key = Felt252.fromInt(
-        u256,
-        0x0000000000000000000000000000000000000000000000000000000000000012,
-    );
-
-    // Define the expected public key corresponding to the private key
-    const expected_key = Felt252.fromInt(
-        u256,
-        0x019661066e96a8b9f06a1d136881ee924dfb6a885239caa5fd3f87a54c6b25c4,
-    );
-
-    // Call the getPublicKey function with the private key and verify the result
-    try expect(getPublicKey(&private_key).eql(expected_key));
+    for (private_keys, expected_public_keys) |private_key, public_key| {
+        try expect(
+            getPublicKey(
+                &Felt252.fromInt(u256, private_key),
+            ).eql(
+                Felt252.fromInt(u256, public_key),
+            ),
+        );
+    }
 }
 
 test "Signature: verify valid message" {
