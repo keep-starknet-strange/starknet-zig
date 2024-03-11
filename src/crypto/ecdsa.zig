@@ -4,9 +4,25 @@ const expectEqual = std.testing.expectEqual;
 const expectError = std.testing.expectError;
 
 const Felt252 = @import("../math/fields/starknet.zig").Felt252;
+const field_constants = @import("../math/fields/constants.zig");
 const CurveParams = @import("../math/curve/curve_params.zig");
 const ProjectivePoint = @import("../math/curve/short_weierstrass/projective.zig").ProjectivePoint;
 const AffinePoint = @import("../math/curve/short_weierstrass/affine.zig").AffinePoint;
+
+/// Number of bits required to represent an element in the ECDSA field.
+const N_ELEMENT_BITS_ECDSA: u256 = @floor(
+    @as(
+        f128,
+        @floatFromInt(std.math.log2(@as(u256, field_constants.STARKNET_PRIME))),
+    ),
+);
+
+/// Upper bound for elements in the ECDSA field.
+/// Calculated as 2^(N_ELEMENT_BITS_ECDSA).
+const ELEMENT_UPPER_BOUND = Felt252.fromInt(
+    u256,
+    std.math.pow(u256, 2, N_ELEMENT_BITS_ECDSA),
+);
 
 /// Represents an error that can occur during ECDSA signing.
 pub const SignError = error{
@@ -85,8 +101,11 @@ pub const Signature = struct {
     /// - It's crucial to use a cryptographically secure random number generator for generating the nonce (`k`) to prevent predictable signatures and key recovery attacks.
     /// - The uniqueness of the nonce (`k`) for each message is fundamental to the security of the ECDSA scheme. Reusing the same nonce for multiple messages can lead to the leakage of the private key.
     pub fn sign(private_key: *const Felt252, message: *const Felt252, k: *const Felt252) !Self {
-        // Check if the message hash is valid
-        if (message.gte(&comptime Felt252.MaxField)) return SignError.InvalidMessageHash;
+        // Check if the message hash is valid.
+        // Message hash must be smaller than 2**N_ELEMENT_BITS_ECDSA.
+        // Message whose hash is >= 2**N_ELEMENT_BITS_ECDSA cannot be signed.
+        // This happens with a very small probability.
+        if (message.gte(&comptime ELEMENT_UPPER_BOUND)) return SignError.InvalidMessageHash;
 
         // Check if the nonce `k` is zero
         if (k.isZero()) return SignError.InvalidK;
@@ -96,7 +115,7 @@ pub const Signature = struct {
         const r = full_r.x;
 
         // Check if r is zero or greater than the maximum field value
-        if (r.isZero() or r.gte(&comptime Felt252.MaxField)) return SignError.InvalidK;
+        if (r.isZero() or r.gte(&comptime ELEMENT_UPPER_BOUND)) return SignError.InvalidK;
 
         // Compute s = (k^(-1) * (z + rd_A)) mod n
         const s = Felt252.fromBytesLe(
@@ -112,7 +131,7 @@ pub const Signature = struct {
         );
 
         // Check if s is zero or greater than the maximum field value
-        if (s.isZero() or s.gte(&comptime Felt252.MaxField)) return SignError.InvalidK;
+        if (s.isZero() or s.gte(&comptime ELEMENT_UPPER_BOUND)) return SignError.InvalidK;
 
         // Calculate v = (y-coordinate of full_r) mod 2
         const v = Felt252.fromBytesLe(
@@ -167,13 +186,13 @@ pub const Signature = struct {
     /// It is expected that r' == r if the signature is valid and r' ≠ r if the signature or the message or the public key is incorrect.
     pub fn verify(self: *const Self, public_key: *const Felt252, message: *const Felt252) !bool {
         // Check if the message hash is within the valid range
-        if (message.gte(&comptime Felt252.MaxField)) return VerifyError.InvalidMessageHash;
+        if (message.gte(&comptime ELEMENT_UPPER_BOUND)) return VerifyError.InvalidMessageHash;
 
         // Check if the 'r' value is zero or exceeds the maximum field value
-        if (self.r.isZero() or self.r.gte(&comptime Felt252.MaxField)) return VerifyError.InvalidR;
+        if (self.r.isZero() or self.r.gte(&comptime ELEMENT_UPPER_BOUND)) return VerifyError.InvalidR;
 
         // Check if the 's' value is zero or exceeds the maximum field value
-        if (self.s.isZero() or self.s.gte(&comptime Felt252.MaxField)) return VerifyError.InvalidS;
+        if (self.s.isZero() or self.s.gte(&comptime ELEMENT_UPPER_BOUND)) return VerifyError.InvalidS;
 
         // Attempt to convert the provided public key to an affine point
         const full_public_key = AffinePoint.fromX(public_key.*) catch
@@ -183,7 +202,7 @@ pub const Signature = struct {
         const w = try self.s.modInverse(CurveParams.EC_ORDER);
 
         // Check if the modular inverse of 's' is zero or exceeds the maximum field value
-        if (w.isZero() or w.gte(&Felt252.MaxField)) return VerifyError.InvalidS;
+        if (w.isZero() or w.gte(&ELEMENT_UPPER_BOUND)) return VerifyError.InvalidS;
 
         // Calculate 'zw * G'
         const zw_g = CurveParams.GENERATOR.mulByScalarProjective(
@@ -235,13 +254,13 @@ pub const Signature = struct {
     /// Public key recovery is possible for signatures based on the ElGamal signature scheme (such as DSA and ECDSA). This feature is particularly useful in bandwidth-constrained or storage-constrained environments, such as blockchain systems, where transmission or storage of the public keys cannot be afforded. For example, the Ethereum blockchain uses extended signatures {r, s, v} for the signed transactions on the chain to save storage and bandwidth.
     pub fn recover(self: *const Self, message: *const Felt252) !Felt252 {
         // Check if the message hash is within the valid range
-        if (message.gte(&Felt252.MaxField)) return RecoverError.InvalidMessageHash;
+        if (message.gte(&ELEMENT_UPPER_BOUND)) return RecoverError.InvalidMessageHash;
 
         // Check if the 'r' value is zero or exceeds the maximum field value
-        if (self.r.isZero() or self.r.gte(&Felt252.MaxField)) return RecoverError.InvalidR;
+        if (self.r.isZero() or self.r.gte(&ELEMENT_UPPER_BOUND)) return RecoverError.InvalidR;
 
         // Check if the 's' value is zero or exceeds the maximum field value
-        if (self.s.isZero() or self.s.gte(&Felt252.MaxField)) return RecoverError.InvalidS;
+        if (self.s.isZero() or self.s.gte(&ELEMENT_UPPER_BOUND)) return RecoverError.InvalidS;
 
         // Check if the 'v' value is greater than one
         if (self.v.?.gt(&Felt252.one())) return RecoverError.InvalidV;
@@ -274,32 +293,45 @@ pub const Signature = struct {
     }
 };
 
-/// Computes the public key corresponding to the given private key using the elliptic curve parameters.
-///
-/// This function calculates the public key corresponding to the provided private key
-/// using the elliptic curve parameters. It performs scalar multiplication of the base generator point
-/// by the private key, following the ECDSA key-pair generation process, and returns the x-coordinate of the resulting point as the public key.
-///
-/// # Key Generation
-///
-/// The ECDSA key-pair consists of:
-/// - Private key (integer): `privKey`
-/// - Public key (EC point): `pubKey = privKey * G`
-///
-/// The private key is generated as a random integer in the range [0...n-1], where `n` is the order of the base generator point `G`.
-/// The public key `pubKey` is a point on the elliptic curve, calculated by the EC point multiplication: `pubKey = privKey * G` (the private key, multiplied by the generator point `G`).
-///
-/// # Arguments
-///
-/// * `private_key` - A pointer to the private key represented as a field element.
-///
-/// # Returns
-///
-/// The x-coordinate of the resulting point after scalar multiplication, representing the public key.
-pub fn getPublicKey(private_key: *const Felt252) Felt252 {
-    // Scalar multiply the base generator point by the private key and return the x-coordinate.
-    return CurveParams.GENERATOR.mulByScalarProjective(private_key).x;
-}
+/// An ECDSA key pair.
+pub const KeyPair = struct {
+    const Self = @This();
+
+    /// Public part.
+    public_key: Felt252,
+    /// Secret scalar.
+    private_key: Felt252,
+
+    /// Computes the public key corresponding to the given private key using the elliptic curve parameters.
+    ///
+    /// This function calculates the public key corresponding to the provided private key
+    /// using the elliptic curve parameters. It performs scalar multiplication of the base generator point
+    /// by the private key, following the ECDSA key-pair generation process, and returns the x-coordinate of the resulting point as the public key.
+    ///
+    /// # Key Generation
+    ///
+    /// The ECDSA key-pair consists of:
+    /// - Private key (integer): `privKey`
+    /// - Public key (EC point): `pubKey = privKey * G`
+    ///
+    /// The private key is generated as a random integer in the range [0...n-1], where `n` is the order of the base generator point `G`.
+    /// The public key `pubKey` is a point on the elliptic curve, calculated by the EC point multiplication: `pubKey = privKey * G` (the private key, multiplied by the generator point `G`).
+    ///
+    /// # Arguments
+    ///
+    /// * `private_key` - A pointer to the private key represented as a field element.
+    ///
+    /// # Returns
+    ///
+    /// The x-coordinate of the resulting point after scalar multiplication, representing the public key.
+    pub fn fromSecretKey(private_key: *const Felt252) Self {
+        // Scalar multiply the base generator point by the private key and return the x-coordinate.
+        return .{
+            .private_key = private_key.*,
+            .public_key = CurveParams.GENERATOR.mulByScalarProjective(private_key).x,
+        };
+    }
+};
 
 // Test cases ported from:
 //   https://github.com/starkware-libs/crypto-cpp/blob/95864fbe11d5287e345432dbe1e80dea3c35fc58/src/starkware/crypto/ffi/crypto_lib_test.go
@@ -374,12 +406,11 @@ test "getPublicKey: test with precomputed keys" {
     };
 
     for (private_keys, expected_public_keys) |private_key, public_key| {
-        try expect(
-            getPublicKey(
-                &Felt252.fromInt(u256, private_key),
-            ).eql(
-                Felt252.fromInt(u256, public_key),
-            ),
+        const k1 = Felt252.fromInt(u256, private_key);
+        const k2 = Felt252.fromInt(u256, public_key);
+        try expectEqual(
+            KeyPair{ .private_key = k1, .public_key = k2 },
+            KeyPair.fromSecretKey(&k1),
         );
     }
 }
@@ -503,10 +534,10 @@ test "Signature: test message signature" {
     const signature = try Signature.sign(&private_key, &message_hash, &k);
 
     // Derive the public key from the provided private key
-    const public_key = getPublicKey(&private_key);
+    const key_pair = KeyPair.fromSecretKey(&private_key);
 
     // Verify that the signature is valid for the provided public key and message hash
-    try expect(try signature.verify(&public_key, &message_hash));
+    try expect(try signature.verify(&key_pair.public_key, &message_hash));
 }
 
 test "Signature: test recover" {
@@ -532,7 +563,10 @@ test "Signature: test recover" {
     const signature = try Signature.sign(&private_key, &message_hash, &k);
 
     // Recover the public key from the signature and message hash
-    try expectEqual(getPublicKey(&private_key), try signature.recover(&message_hash));
+    try expectEqual(
+        KeyPair.fromSecretKey(&private_key).public_key,
+        try signature.recover(&message_hash),
+    );
 }
 
 test "Signature: test recover with invalid r" {
