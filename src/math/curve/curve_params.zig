@@ -103,9 +103,8 @@ pub const GENERATOR: AffinePoint = .{
     .infinity = false,
 };
 
-/// Constant representing the Pedersen hash point P0.
-/// P0 is derived from the decimal digits of π and is used in the Pedersen hash function.
-pub const PEDERSEN_P0: AffinePoint = .{
+/// The shift point 𝑃0 was added for technical reasons to make sure the point at infinity on the elliptic curve does not appear during the computation.
+pub const SHIFT_POINT: AffinePoint = .{
     .x = Felt252.fromInt(
         u256,
         0x49ee3eba8c1600700ee1b87eb599f16716b0b1022947733551fde4050ca6804,
@@ -117,9 +116,9 @@ pub const PEDERSEN_P0: AffinePoint = .{
     .infinity = false,
 };
 
-/// Constant representing the Pedersen hash point P1.
-/// P1 is derived from the decimal digits of π and is used in the Pedersen hash function.
-pub const PEDERSEN_P1: AffinePoint = .{
+/// Constant representing the Pedersen hash point P0.
+/// P0 is derived from the decimal digits of π and is used in the Pedersen hash function.
+pub const PEDERSEN_P0: AffinePoint = .{
     .x = Felt252.fromInt(
         u256,
         0x234287dcbaffe7f969c748655fca9e58fa8120b6d56eb0c1080d17957ebe47b,
@@ -131,9 +130,9 @@ pub const PEDERSEN_P1: AffinePoint = .{
     .infinity = false,
 };
 
-/// Constant representing the Pedersen hash point P2.
-/// P2 is derived from the decimal digits of π and is used in the Pedersen hash function.
-pub const PEDERSEN_P2: AffinePoint = .{
+/// Constant representing the Pedersen hash point P1.
+/// P1 is derived from the decimal digits of π and is used in the Pedersen hash function.
+pub const PEDERSEN_P1: AffinePoint = .{
     .x = Felt252.fromInt(
         u256,
         0x4fa56f376c83db33f9dab2656558f3399099ec1de5e3018b7a6932dba8aa378,
@@ -145,9 +144,9 @@ pub const PEDERSEN_P2: AffinePoint = .{
     .infinity = false,
 };
 
-/// Constant representing the Pedersen hash point P3.
-/// P3 is derived from the decimal digits of π and is used in the Pedersen hash function.
-pub const PEDERSEN_P3: AffinePoint = .{
+/// Constant representing the Pedersen hash point P2.
+/// P2 is derived from the decimal digits of π and is used in the Pedersen hash function.
+pub const PEDERSEN_P2: AffinePoint = .{
     .x = Felt252.fromInt(
         u256,
         0x4ba4cc166be8dec764910f75b45f74b40c690c74709e90f3aa372f0bd2d6997,
@@ -159,9 +158,9 @@ pub const PEDERSEN_P3: AffinePoint = .{
     .infinity = false,
 };
 
-/// Constant representing the Pedersen hash point P4.
-/// P4 is derived from the decimal digits of π and is used in the Pedersen hash function.
-pub const PEDERSEN_P4: AffinePoint = .{
+/// Constant representing the Pedersen hash point P3.
+/// P3 is derived from the decimal digits of π and is used in the Pedersen hash function.
+pub const PEDERSEN_P3: AffinePoint = .{
     .x = Felt252.fromInt(
         u256,
         0x54302dcb0e6cc1c6e44cca8f61a63bb2ca65048d53fb325d36ff12c49a58202,

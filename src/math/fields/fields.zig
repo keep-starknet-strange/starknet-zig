@@ -6,16 +6,6 @@ pub const FieldError = error{
     DivisionByZero,
 };
 
-pub const U256Result = struct {
-    value: u256 = undefined,
-
-    pub inline fn init(allocator: std.mem.Allocator) !*U256Result {
-        var res = try allocator.create(U256Result);
-        res.* = .{};
-        return &res;
-    }
-};
-
 /// Represents a finite field with a specified modulus.
 ///
 /// This finite field struct encapsulates operations and properties related to arithmetic operations modulo a given modulus.
