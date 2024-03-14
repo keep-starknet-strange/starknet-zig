@@ -21,4 +21,5 @@ pub const bench = struct {
 pub const crypto = struct {
     pub usingnamespace @import("crypto/ecdsa.zig");
     pub usingnamespace @import("crypto/pedersen_hash.zig");
+    pub usingnamespace @import("crypto/poseidon_hash.zig");
 };
