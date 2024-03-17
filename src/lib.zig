@@ -23,3 +23,7 @@ pub const crypto = struct {
     pub usingnamespace @import("crypto/pedersen_hash.zig");
     pub usingnamespace @import("crypto/poseidon_hash.zig");
 };
+
+pub const core = struct {
+    pub usingnamespace @import("core/eth_address.zig");
+};
