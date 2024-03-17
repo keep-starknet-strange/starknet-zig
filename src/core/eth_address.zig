@@ -54,14 +54,18 @@ pub const EthAddress = struct {
     }
 
     pub fn fromFelt(felt: Felt252) !Self {
-        var res: Self = .{};
-        std.mem.writeInt(
-            u160,
-            &res.inner,
-            try felt.toInt(u160),
-            .big,
-        );
-        return res;
+        if (felt.lte(&MAX_L1_ADDRESS)) {
+            var res: Self = .{};
+            std.mem.writeInt(
+                u160,
+                &res.inner,
+                try felt.toInt(u160),
+                .big,
+            );
+            return res;
+        } else {
+            return error.FromFieldElementError;
+        }
     }
 };
 
@@ -159,4 +163,16 @@ test "EthAddress: generate address from Felt252" {
             ),
         );
     }
+}
+
+test "EthAddress: generate address from Felt252 should return error if greater than max address" {
+    try expectError(
+        error.FromFieldElementError,
+        EthAddress.fromFelt(
+            Felt252.fromInt(
+                u256,
+                MAX_L1_ADDRESS.toU256() + 1,
+            ),
+        ),
+    );
 }
