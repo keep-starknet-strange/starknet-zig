@@ -25,5 +25,6 @@ pub const crypto = struct {
 };
 
 pub const core = struct {
-    pub usingnamespace @import("core/eth_address.zig");
+    pub usingnamespace @import("core/types/eth_address.zig");
+    pub usingnamespace @import("core/types/hash256.zig");
 };
