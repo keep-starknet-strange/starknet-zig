@@ -9,6 +9,11 @@ const Felt252 = @import("../../math/fields/starknet.zig").Felt252;
 const EthAddress = @import("./eth_address.zig").EthAddress;
 const Hash256 = @import("./hash256.zig").Hash256;
 
+pub const ParseMessageToL2Error = error{
+    EmptyCalldata,
+    FromAddressOutOfRange,
+};
+
 // Structure representing a message sent from L2 to L1.
 pub const MessageToL2 = struct {
     const Self = @This();
@@ -32,7 +37,7 @@ pub const MessageToL2 = struct {
     /// utilizes the Keccak256 hashing algorithm to produce a 256-bit hash value.
     ///
     /// Returns: Hash256 - The hash of the message.
-    pub fn hash(self: *Self) Hash256 {
+    pub fn hash(self: *const Self) Hash256 {
         // Initialize a Keccak256 hash function.
         var hasher = std.crypto.hash.sha3.Keccak256.init(.{});
 
@@ -121,6 +126,64 @@ pub const MessageToL1 = struct {
     // Deallocate memory
     pub fn deinit(self: *Self) void {
         self.payload.deinit();
+    }
+};
+
+// Structure representing an L1 handler transaction.
+pub const L1HandlerTransaction = struct {
+    const Self = @This();
+
+    /// Transaction hash.
+    transaction_hash: Felt252,
+    /// Version of the transaction scheme.
+    version: Felt252,
+    /// The L1->L2 message nonce field of the sn core L1 contract at the time the transaction was sent.
+    nonce: u64,
+    /// Contract address.
+    contract_address: Felt252,
+    /// Entry point selector.
+    entry_point_selector: Felt252,
+    /// The parameters passed to the function.
+    calldata: std.ArrayList(Felt252),
+
+    /// Parses the calldata of an L1 handler transaction into a MessageToL2 instance.
+    /// This function extracts necessary information from the transaction calldata to construct a MessageToL2 instance,
+    /// representing the message sent from L1 to L2.
+    ///
+    /// Parameters:
+    ///     - self: A pointer to the L1HandlerTransaction instance.
+    ///
+    /// Returns:
+    ///     - MessageToL2: The parsed L1->L2 message.
+    ///
+    /// Throws:
+    ///     - ParseMessageToL2Error: An error indicating failure in parsing the transaction calldata.
+    ///
+    pub fn parseMessageToL2(self: *Self) !MessageToL2 {
+
+        // Check if calldata is empty.
+        if (self.calldata.items.len == 0) return ParseMessageToL2Error.EmptyCalldata;
+
+        // Clone the calldata to process it.
+        var payload = try self.calldata.clone();
+        // Extract the sender address from calldata.
+        const from_address = payload.orderedRemove(0);
+        // Ensure deallocation of payload resources in case of errors.
+        errdefer payload.deinit();
+
+        // Construct and return the MessageToL2 instance.
+        return .{
+            .from_address = EthAddress.fromFelt(from_address) catch return ParseMessageToL2Error.FromAddressOutOfRange,
+            .to_address = self.contract_address,
+            .selector = self.entry_point_selector,
+            .payload = payload,
+            .nonce = self.nonce,
+        };
+    }
+
+    // Deallocate memory used by the transaction.
+    pub fn deinit(self: *Self) void {
+        self.calldata.deinit();
     }
 };
 
@@ -387,4 +450,45 @@ test "MessageToL2: hash a message from L1 to L2" {
         // Verify that the computed hash matches the expected message hash.
         try expectEqualDeep(Hash256.fromInt(message.message_hash), m.hash());
     }
+}
+
+test "L1HandlerTransaction: parse a message to L2" {
+    // Initialize calldata containing parameters of the L1 handler transaction.
+    var calldata = std.ArrayList(Felt252).init(std.testing.allocator);
+
+    // Append parameters to the calldata.
+    try calldata.append(Felt252.fromInt(u256, 0xc3511006c04ef1d78af4c8e0e74ec18a6e64ff9e));
+    try calldata.append(Felt252.fromInt(u256, 0x689ead7d814e51ed93644bc145f0754839b8dcb340027ce0c30953f38f55d7));
+    try calldata.append(Felt252.fromInt(u256, 0x2c68af0bb140000));
+    try calldata.append(Felt252.fromInt(u256, 0x0));
+
+    // Create an instance of L1HandlerTransaction with mock data.
+    var l1_handler_tx: L1HandlerTransaction = .{
+        .transaction_hash = Felt252.fromInt(
+            u256,
+            0x374286ae28f201e61ffbc5b022cc9701208640b405ea34ea9799f97d5d2d23c,
+        ),
+        .version = Felt252.zero(),
+        .nonce = 775628,
+        .contract_address = Felt252.fromInt(
+            u256,
+            0x73314940630fd6dcda0d772d4c972c4e0a9946bef9dabf4ef84eda8ef542b82,
+        ),
+        .entry_point_selector = Felt252.fromInt(
+            u256,
+            0x2d757788a8d8d6f21d1cd40bce38a8222d70654214e96ff95d8086e684fbee5,
+        ),
+        .calldata = calldata,
+    };
+    defer l1_handler_tx.deinit(); // Deallocate memory on exit.
+
+    // Parse the L1 handler transaction to construct a MessageToL2 instance.
+    var message_to_l2 = try l1_handler_tx.parseMessageToL2();
+    defer message_to_l2.deinit(); // Deallocate memory on exit.
+
+    // Verify the correctness of the parsed message hash.
+    try expectEqualDeep(
+        Hash256.fromInt(0xc51a543ef9563ad2545342b390b67edfcddf9886aa36846cf70382362fc5fab3),
+        message_to_l2.hash(),
+    );
 }
