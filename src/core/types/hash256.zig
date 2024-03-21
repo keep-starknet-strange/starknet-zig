@@ -18,7 +18,7 @@ pub const Hash256 = struct {
     const Self = @This();
 
     /// Byte count representing the size of the hash.
-    const byte_count: usize = 32;
+    pub const byte_count: usize = 32;
 
     /// Expected length of the hexadecimal string representation of the hash.
     const expected_hex_length = byte_count * 2;
