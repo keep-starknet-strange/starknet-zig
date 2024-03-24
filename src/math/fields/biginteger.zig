@@ -898,7 +898,7 @@ pub fn bigInt(comptime N: usize) type {
         ///
         /// Returns:
         ///   - A big integer constructed from the provided byte array.
-        pub fn fromBytesLe(bytes: [@sizeOf(u256)]u8) Self {
+        pub fn fromBytesLe(bytes: [N * @sizeOf(u64)]u8) Self {
             // Initialize a new big integer with all limbs set to zero.
             var r: Self = .{};
 
@@ -2026,5 +2026,10 @@ test "bigInt: two adic valuation" {
     try expectEqual(
         @as(u32, 2),
         bigInt(4).fromInt(u256, 0xB49E79F09077C47B76690D8104622E5A1EC4805B646D157DBA58BE6B2E2EC6F5).twoAdicValuation(),
+    );
+
+    try expectEqual(
+        @as(u32, 46),
+        bigInt(6).fromInt(u384, 0x1ae3a4617c510eac63b05c06ca1493b1a22d9f300f5138f1ef3622fba094800170b5d44300000008508c00000000001).twoAdicValuation(),
     );
 }
