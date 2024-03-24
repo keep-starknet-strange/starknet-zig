@@ -1485,6 +1485,41 @@ pub fn bigInt(comptime N: usize) type {
             // TODO: support for even `p`?
             @panic("even moduli are currently unsupported");
         }
+
+        /// Computes the 2-adic valuation of a big integer.
+        ///
+        /// This function computes the 2-adic valuation of a big integer, which represents the largest power of 2 that divides the big integer.
+        ///
+        /// # Parameters
+        /// - `self`: A pointer to the big integer for which the 2-adic valuation is to be computed.
+        ///
+        /// # Returns
+        /// The 2-adic valuation of the big integer.
+        ///
+        /// Remarks
+        /// - The function assumes that the big integer is odd.
+        pub fn twoAdicValuation(self: *const Self) u32 {
+            // Assert that the big integer is odd
+            std.debug.assert(self.isOdd());
+
+            // Dereference the pointer to obtain the actual big integer
+            var a = self.*;
+
+            // Initialize the 2-adic valuation
+            var twoAdicity: u32 = 0;
+
+            // Since `self` is odd, we can always subtract one without a borrow
+            a.limbs[0] -= 1;
+
+            // Compute the 2-adic valuation
+            while (a.isEven()) {
+                a.shrAssign(1);
+                twoAdicity += 1;
+            }
+
+            // Return the 2-adic valuation
+            return twoAdicity;
+        }
     };
 }
 
@@ -1973,4 +2008,23 @@ test "bigInt: mulMod operations" {
             a_big_int.mulMod(&b_big_int, &p_big_int).toU256(),
         );
     }
+}
+
+test "bigInt: two adic valuation" {
+    try expectEqual(
+        @as(u32, 2),
+        bigInt(4).fromInt(u256, 29).twoAdicValuation(),
+    );
+    try expectEqual(
+        @as(u32, 3),
+        bigInt(4).fromInt(u256, 25).twoAdicValuation(),
+    );
+    try expectEqual(
+        @as(u32, 1),
+        bigInt(4).fromInt(u256, 0x6C5E69E06D144792DC5CCDA014D108233D3A98E77387B26A4EE4487785644E5F).twoAdicValuation(),
+    );
+    try expectEqual(
+        @as(u32, 2),
+        bigInt(4).fromInt(u256, 0xB49E79F09077C47B76690D8104622E5A1EC4805B646D157DBA58BE6B2E2EC6F5).twoAdicValuation(),
+    );
 }
