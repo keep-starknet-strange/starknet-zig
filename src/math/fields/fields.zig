@@ -27,7 +27,7 @@ pub fn Field(comptime n_limbs: usize, comptime modulo: u256) type {
         /// Represents the modular inverse of `modulus` modulo 2^64.
         ///
         /// This value is precomputed and represents the modular inverse of `modulus` modulo 2^64. It is used in Montgomery exponentiation.
-        pub const Inv: u64 = computeInvMontgomery();
+        pub const Inv = computeInvMontgomery();
 
         /// Represents the value of R^2 modulo the modulus.
         ///
@@ -36,7 +36,7 @@ pub fn Field(comptime n_limbs: usize, comptime modulo: u256) type {
         /// Explanation:
         /// Let `M` be the power of 2^64 nearest to `Self::MODULUS_BITS`.
         /// Then `R = M % Self::MODULUS`.
-        pub const R2: big_int = computeR2Montgomery();
+        pub const R2 = computeR2Montgomery();
 
         /// Represents the value one less than the modulus.
         ///
@@ -46,7 +46,7 @@ pub fn Field(comptime n_limbs: usize, comptime modulo: u256) type {
         /// Represents the modulus in non-Montgomery format.
         ///
         /// This value is the modulus of the finite field represented in a non-Montgomery format.
-        pub const Modulus: big_int = big_int.fromInt(u256, modulo);
+        pub const Modulus = big_int.fromInt(u256, modulo);
 
         /// Represents the number of bytes required to store a field element.
         ///
@@ -63,10 +63,17 @@ pub fn Field(comptime n_limbs: usize, comptime modulo: u256) type {
         /// This value indicates the number of bits in each limb used to represent a field element, typically 64 for u64.
         pub const Bits: usize = @bitSizeOf(u64);
 
+        /// Represents the 2-adic valuation of the modulus.
+        ///
+        /// The 2-adic valuation of a number represents the highest power of 2 that divides that number.
+        /// In the context of a modulus, it indicates how many times the modulus can be divided by 2 before reaching an odd number.
+        /// This value is relevant for certain arithmetic computations and algorithms, such as Montgomery operations.
+        pub const TwoAdicity = Modulus.twoAdicValuation();
+
         /// Represents a field element in the finite field.
         ///
         /// This field element is a member of the finite field and is represented by a big integer with a specified number of limbs.
-        fe: big_int = big_int{},
+        fe: big_int = .{},
 
         /// Creates a `Field` element from an integer value.
         ///
@@ -84,30 +91,7 @@ pub fn Field(comptime n_limbs: usize, comptime modulo: u256) type {
         /// If `num` is negative, an assertion failure occurs.
         /// If `T` represents an integer type with more than 128 bits, an error is raised due to unsupported integer sizes.
         pub fn fromInt(comptime T: type, num: T) Self {
-            std.debug.assert(num >= 0);
-
-            // Switch based on the size of the integer value
-            return switch (comptime @typeInfo(T).Int.bits) {
-                // For integers up to 63 bits, directly initialize the field element
-                0...63 => Self.toMontgomery(big_int.init(.{ @intCast(num), 0, 0, 0 })),
-                // For 64-bit integers, initialize the field element directly
-                Bits => Self.toMontgomery(big_int.init(.{ num, 0, 0, 0 })),
-                // For integers from 65 to 128 bits, perform truncation and division
-                65...128 => Self.toMontgomery(big_int.init(
-                    .{
-                        @truncate(@mod(num, @as(u128, @intCast(std.math.maxInt(u64))) + 1)),
-                        @truncate(@divTrunc(num, @as(u128, @intCast(std.math.maxInt(u64))) + 1)),
-                        0,
-                        0,
-                    },
-                )),
-                // For larger integers, convert to bytes and then initialize the field element
-                else => blk: {
-                    var lbe = [_]u8{0} ** BytesSize;
-                    std.mem.writeInt(T, &lbe, num % modulo, .little);
-                    break :blk Self.toMontgomery(big_int.fromBytesLe(lbe));
-                },
-            };
+            return toMontgomery(big_int.fromInt(T, num).rem(&Modulus));
         }
 
         /// Generates a random field element within the finite field using a provided random number generator.
@@ -121,7 +105,7 @@ pub fn Field(comptime n_limbs: usize, comptime modulo: u256) type {
         /// # Returns:
         /// A random field element within the finite field.
         pub fn rand(r: std.Random) Self {
-            return Self.fromInt(u256, r.int(u256));
+            return fromInt(u256, r.int(u256));
         }
 
         /// Computes the value of -M^{-1} mod 2^64.
@@ -305,7 +289,7 @@ pub fn Field(comptime n_limbs: usize, comptime modulo: u256) type {
         /// # Returns:
         /// A field element in Montgomery representation.
         pub fn fromBytesLe(bytes: [BytesSize]u8) Self {
-            return Self.toMontgomery(big_int.fromBytesLe(bytes));
+            return toMontgomery(big_int.fromBytesLe(bytes));
         }
 
         /// Converts a byte array into a field element in Montgomery representation.
@@ -319,7 +303,7 @@ pub fn Field(comptime n_limbs: usize, comptime modulo: u256) type {
         /// # Returns:
         /// A field element in Montgomery representation.
         pub fn fromBytesBe(bytes: [BytesSize]u8) Self {
-            return Self.toMontgomery(big_int.fromBytesBe(bytes));
+            return toMontgomery(big_int.fromBytesBe(bytes));
         }
 
         /// Converts the field element to a little-endian bits array.
@@ -424,7 +408,7 @@ pub fn Field(comptime n_limbs: usize, comptime modulo: u256) type {
 
             // Check if the result needs to be reduced modulo the modulus.
             // If the modulus has a spare bit (indicating it's not a power of two), reduction is necessary.
-            if (comptime Self.modulusHasSpareBit()) {
+            if (comptime modulusHasSpareBit()) {
                 // Reduce the result by subtracting the modulus to ensure it remains within the finite field.
                 self.subModulusAssign();
             } else {
@@ -438,7 +422,7 @@ pub fn Field(comptime n_limbs: usize, comptime modulo: u256) type {
         /// TODO: add precomution?
         pub fn sqrt(self: Self) ?Self {
             const v = arithmetic.tonelliShanks(self.toU256(), modulo);
-            return if (v[2]) Self.fromInt(u256, @intCast(v[0])) else null;
+            return if (v[2]) fromInt(u256, @intCast(v[0])) else null;
         }
 
         /// Determines whether the current modulus allows for a specific optimization in modular multiplication.
@@ -541,12 +525,12 @@ pub fn Field(comptime n_limbs: usize, comptime modulo: u256) type {
                     // Compute the Montgomery factor k and perform the corresponding multiplication and reduction
                     const k: u64 = r[0] *% comptime Inv;
                     var carry2: u64 = 0;
-                    arithmetic.macDiscard(r[0], k, comptime Self.Modulus.limbs[0], &carry2);
+                    arithmetic.macDiscard(r[0], k, comptime Modulus.limbs[0], &carry2);
 
                     // Iterate over the remaining digits and perform the multiplications and accumulations
                     inline for (1..n_limbs) |j| {
                         r[j] = arithmetic.macWithCarry(r[j], self.fe.limbs[j], rhs.fe.limbs[i], &carry1);
-                        r[j - 1] = arithmetic.macWithCarry(r[j], k, Self.Modulus.limbs[j], &carry2);
+                        r[j - 1] = arithmetic.macWithCarry(r[j], k, Modulus.limbs[j], &carry2);
                     }
 
                     // Add the final carries
@@ -639,7 +623,7 @@ pub fn Field(comptime n_limbs: usize, comptime modulo: u256) type {
             else
                 ext.x;
 
-            return Self.fromInt(u256, @bitCast(result));
+            return fromInt(u256, @bitCast(result));
         }
 
         /// Computes the square of a finite field element.
@@ -733,7 +717,7 @@ pub fn Field(comptime n_limbs: usize, comptime modulo: u256) type {
             @memcpy(&self.fe.limbs, &r.buf[1]);
 
             // Perform modulus subtraction if needed
-            if (comptime Self.modulusHasSpareBit()) self.subModulusAssign();
+            if (comptime modulusHasSpareBit()) self.subModulusAssign();
         }
 
         /// Raise a field element to a general power.
@@ -945,7 +929,7 @@ pub fn Field(comptime n_limbs: usize, comptime modulo: u256) type {
 
             // Check if the result needs to be reduced modulo the modulus.
             // If the modulus has a spare bit (indicating it's not a power of two), reduction is necessary.
-            if (comptime Self.modulusHasSpareBit()) {
+            if (comptime modulusHasSpareBit()) {
                 // Reduce the result by subtracting the modulus to ensure it remains within the finite field.
                 self.subModulusAssign();
             } else {
@@ -1049,7 +1033,7 @@ pub fn Field(comptime n_limbs: usize, comptime modulo: u256) type {
                         const carry = b.fe.addWithCarryAssign(&Modulus);
                         b.fe.div2Assign();
                         // Handle overflow if necessary
-                        if (comptime !Self.modulusHasSpareBit() and carry) {
+                        if (comptime !modulusHasSpareBit() and carry) {
                             b.fe.limbs[n_limbs - 1] |= 1 << 63;
                         }
                     }
@@ -1064,7 +1048,7 @@ pub fn Field(comptime n_limbs: usize, comptime modulo: u256) type {
                         const carry = c.fe.addWithCarryAssign(&Modulus);
                         c.fe.div2Assign();
                         // Handle overflow if necessary
-                        if (comptime !Self.modulusHasSpareBit() and carry) {
+                        if (comptime !modulusHasSpareBit() and carry) {
                             c.fe.limbs[n_limbs - 1] |= 1 << 63;
                         }
                     }
